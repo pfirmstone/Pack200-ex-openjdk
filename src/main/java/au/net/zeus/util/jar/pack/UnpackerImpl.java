@@ -40,7 +40,7 @@ import java.util.SortedMap;
 import java.util.jar.JarEntry;
 import java.util.jar.JarInputStream;
 import java.util.jar.JarOutputStream;
-import au.net.zeus.util.jar.Pack200;
+import net.pack200.Pack200;
 import java.util.zip.CRC32;
 import java.util.zip.CheckedOutputStream;
 import java.util.zip.ZipEntry;
@@ -176,7 +176,7 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
             }
 
             deflateHint = (keepDeflateHint) ? false :
-                props.getBoolean(au.net.zeus.util.jar.Pack200.Unpacker.DEFLATE_HINT);
+                props.getBoolean(net.pack200.Pack200.Unpacker.DEFLATE_HINT);
         }
 
         // Checksum apparatus.
@@ -199,13 +199,13 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
         }
 
         private void unpackSegment(InputStream in, JarOutputStream out) throws IOException {
-            props.setProperty(au.net.zeus.util.jar.Pack200.Unpacker.PROGRESS,"0");
+            props.setProperty(net.pack200.Pack200.Unpacker.PROGRESS,"0");
             // Process the output directory or jar output.
             new PackageReader(pkg, in).read();
 
             if (props.getBoolean("unpack.strip.debug"))    pkg.stripAttributeKind("Debug");
             if (props.getBoolean("unpack.strip.compile"))  pkg.stripAttributeKind("Compile");
-            props.setProperty(au.net.zeus.util.jar.Pack200.Unpacker.PROGRESS,"50");
+            props.setProperty(net.pack200.Pack200.Unpacker.PROGRESS,"50");
             pkg.ensureAllClassFiles();
             // Now write out the files.
             Set<Package.Class> classesToWrite = new HashSet<>(pkg.getClasses());
@@ -255,7 +255,7 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
                     Utils.log.info("Writing "+Utils.zeString((ZipEntry)je));
             }
             assert(classesToWrite.isEmpty());
-            props.setProperty(au.net.zeus.util.jar.Pack200.Unpacker.PROGRESS,"100");
+            props.setProperty(net.pack200.Pack200.Unpacker.PROGRESS,"100");
             pkg.reset();  // reset for the next segment, if any
         }
     }

@@ -28,7 +28,7 @@
  * @run main/othervm/policy=policy SecurityTest
  */
 
-import au.net.zeus.util.jar.Pack200;
+import net.pack200.Pack200;
 
 public class SecurityTest {
     public static void main(String... args) {

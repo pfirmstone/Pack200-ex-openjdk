@@ -46,7 +46,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import au.net.zeus.util.jar.Pack200;
+import net.pack200.Pack200;
 import static au.net.zeus.util.jar.pack.Constants.*;
 import java.util.LinkedList;
 

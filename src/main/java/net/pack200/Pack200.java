@@ -22,7 +22,7 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
-package au.net.zeus.util.jar;
+package net.pack200;
 
 import java.util.SortedMap;
 import java.io.InputStream;

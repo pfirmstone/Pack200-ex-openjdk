@@ -46,7 +46,7 @@ import java.util.SortedMap;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarInputStream;
-import au.net.zeus.util.jar.Pack200;
+import net.pack200.Pack200;
 import org.osgi.service.component.annotations.Component;
 
 

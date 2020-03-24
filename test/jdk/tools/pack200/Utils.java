@@ -48,7 +48,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
-import au.net.zeus.util.jar.Pack200;
+import net.pack200.Pack200;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;

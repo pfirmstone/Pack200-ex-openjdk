@@ -25,7 +25,7 @@
 
 package au.net.zeus.util.jar.pack;
 
-import au.net.zeus.util.jar.Pack200;
+import net.pack200.Pack200;
 import au.net.zeus.util.jar.pack.Attribute.Layout;
 import au.net.zeus.util.jar.pack.ConstantPool.ClassEntry;
 import au.net.zeus.util.jar.pack.ConstantPool.DescriptorEntry;
