@@ -100,6 +100,12 @@ class Constants {
 
     public static final Package.Version JAVA8_PACKAGE_VERSION =
             Package.Version.of(171, 0);
+    
+    public static final Package.Version JAVA9_PACKAGE_VERSION =
+            Package.Version.of(180, 0);
+    
+    public static final Package.Version JAVA11_PACKAGE_VERSION =
+            Package.Version.of(190, 0);
 
     // upper limit, should point to the latest class version
     public static final Package.Version JAVA_MAX_CLASS_VERSION =
@@ -128,16 +134,29 @@ class Constants {
     public static final byte CONSTANT_NameandType = 12;
     public static final byte CONSTANT_unused13 = 13;
     public static final byte CONSTANT_unused14 = 14;
-    public static final byte CONSTANT_MethodHandle = 15;
-    public static final byte CONSTANT_MethodType = 16;
-    public static final byte CONSTANT_unused17 = 17;  // unused
-    public static final byte CONSTANT_InvokeDynamic = 18;
+    public static final byte CONSTANT_MethodHandle = 15; // JDK 7
+    public static final byte CONSTANT_MethodType = 16; // JDK 7
+    public static final byte CONSTANT_unused17 = 17;  // JDK 11 CONSTANT_Dynamic Conflict???
+    public static final byte CONSTANT_InvokeDynamic = 18; // JDK 7
+    public static final byte CONSTANT_Module = 19; // JDK 9
+    public static final byte CONSTANT_Package = 20; // JDK 9
+    
+    /**
+     * CONSTANT_Dynamic = 17 in Java 11.  Does this mean we need to change
+     * CONSTANT_BootstrapMethod?
+     * 
+     * Further compounding this issue, it is proposed in JDK-8161256 two more
+     * pool constants:
+     * CONSTANT_Group = 13
+     * CONSTANT_Bytes = 2
+     * 
+     */
 
     // pseudo-constants:
     public static final byte CONSTANT_None = 0;
     public static final byte CONSTANT_Signature = CONSTANT_unused13;
     public static final byte CONSTANT_BootstrapMethod = CONSTANT_unused17; // used only in InvokeDynamic constants
-    public static final byte CONSTANT_Limit = 19;
+    public static final byte CONSTANT_Limit = 21;
 
     public static final byte CONSTANT_All = 50;  // combined global map
     public static final byte CONSTANT_LoadableValue = 51; // used for 'KL' and qldc operands

@@ -126,7 +126,8 @@
                         <encoding>UTF-8</encoding>
                         <meminitial>128m</meminitial>
                         <maxmem>1024m</maxmem>
-                    </configuration>
+                    <showDeprecation>true</showDeprecation>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
