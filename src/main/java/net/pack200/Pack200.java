@@ -31,6 +31,7 @@ import java.io.File;
 import java.io.IOException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.util.EventListener;
 import java.util.jar.JarFile;
 import java.util.jar.JarInputStream;
 import java.util.jar.JarOutputStream;
@@ -47,8 +48,8 @@ import java.util.jar.JarOutputStream;
  * <p>
  * Here is an example using  packer and unpacker:
  * <pre>{@code
- *    import au.net.zeus.util.jar.Pack200;
- *    import au.net.zeus.util.jar.Pack200.*;
+ *    import net.pack200.Pack200;
+ *    import net.pack200.Pack200.*;
  *    ...
  *    // Create the Packer object
  *    Packer packer = Pack200.newPacker();
@@ -113,7 +114,7 @@ public abstract class Pack200 {
     /**
      * Obtain new instance of a class that implements Packer.
      * <ul>
-     * <li><p>If the system property au.net.zeus.util.jar.Pack200.Packer
+     * <li><p>If the system property net.pack200.Pack200.Packer
      * is defined, then the value is taken to be the fully-qualified name
      * of a concrete implementation class, which must implement Packer.
      * This class is loaded and instantiated.  If this process fails
@@ -139,7 +140,7 @@ public abstract class Pack200 {
     /**
      * Obtain new instance of a class that implements Unpacker.
      * <ul>
-     * <li><p>If the system property au.net.zeus.util.jar.Pack200.Unpacker
+     * <li><p>If the system property net.pack200.Pack200.Unpacker
      * is defined, then the value is taken to be the fully-qualified
      * name of a concrete implementation class, which must implement Unpacker.
      * The class is loaded and instantiated.  If this process fails
@@ -571,6 +572,37 @@ public abstract class Pack200 {
          * @throws    IOException if an error is encountered.
          */
         void pack(JarInputStream in, OutputStream out) throws IOException ;
+
+        /**
+         * Registers a listener for PropertyChange events on the properties map.
+         * This is typically used by applications to update a progress bar.
+         *
+         * <p> The default implementation of this method does nothing and has
+         * no side-effects.</p>
+         *
+         * @see #properties
+         * @see #PROGRESS
+         * @param listener  An object to be invoked when a property is changed.
+         */
+        default void addPropertyChangeListener(EventListener listener) {
+        }
+
+        /**
+         * Remove a listener for PropertyChange events, added by
+         * the {@link #addPropertyChangeListener}.
+         *
+         * <p> The default implementation of this method does nothing and has
+         * no side-effects.</p>
+         *
+         * <p><b>WARNING:</b> This method is omitted from the interface
+         * declaration in all subset Profiles of Java SE that do not include
+         * the {@code java.beans} package. </p>
+         *
+         * @see #addPropertyChangeListener
+         * @param listener  The PropertyChange listener to be removed.
+         */
+        default void removePropertyChangeListener(EventListener listener) {
+        }
     }
 
     /**
@@ -682,12 +714,43 @@ public abstract class Pack200 {
          * @throws    IOException if an error is encountered.
          */
         void unpack(File in, JarOutputStream out) throws IOException;
+
+        /**
+         * Registers a listener for PropertyChange events on the properties map.
+         * This is typically used by applications to update a progress bar.
+         *
+         * <p> The default implementation of this method does nothing and has
+         * no side-effects.</p>
+         *
+         * @see #properties
+         * @see #PROGRESS
+         * @param listener  An object to be invoked when a property is changed.
+         */
+        default void addPropertyChangeListener(EventListener listener) {
+        }
+
+        /**
+         * Remove a listener for PropertyChange events, added by
+         * the {@link #addPropertyChangeListener}.
+         *
+         * <p> The default implementation of this method does nothing and has
+         * no side-effects.</p>
+         *
+         * <p><b>WARNING:</b> This method is omitted from the interface
+         * declaration in all subset Profiles of Java SE that do not include
+         * the {@code java.beans} package. </p>
+         *
+         * @see #addPropertyChangeListener
+         * @param listener  The PropertyChange listener to be removed.
+         */
+        default void removePropertyChangeListener(EventListener listener) {
+        }
     }
 
     // Private stuff....
 
-    private static final String PACK_PROVIDER = "au.net.zeus.util.jar.Pack200.Packer";
-    private static final String UNPACK_PROVIDER = "au.net.zeus.util.jar.Pack200.Unpacker";
+    private static final String PACK_PROVIDER = "net.pack200.Pack200.Packer";
+    private static final String UNPACK_PROVIDER = "net.pack200.Pack200.Unpacker";
 
     private static Class<?> packerImpl;
     private static Class<?> unpackerImpl;
@@ -724,14 +787,14 @@ public abstract class Pack200 {
                                 " in your properties file.", e);
         }
     }
-    
+
     private static class GetPropertyAction {
 
         private static String privilegedGetProperty(final String prop, final String string) {
             return AccessController.doPrivileged(
                 (PrivilegedAction<String>) () -> System.getProperty(prop, string)
             );
-        }
+}
 
     }
 

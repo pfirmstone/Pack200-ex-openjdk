@@ -34,6 +34,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.EventListener;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.SortedMap;
@@ -55,6 +56,26 @@ import org.osgi.service.component.annotations.Component;
 @Component(service = Pack200.Unpacker.class)
 public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
 
+
+    /**
+     * Register a listener for changes to options.
+     * @param listener  An object to be invoked when a property is changed.
+     */
+    @Override
+    public void addPropertyChangeListener(EventListener listener) {
+        props.addListener(listener);
+    }
+
+
+    /**
+     * Remove a listener for the PropertyChange event.
+     * @param listener  The PropertyChange listener to be removed.
+     */
+    @Override
+    public void removePropertyChangeListener(EventListener listener) {
+        props.removeListener(listener);
+    }
+
     public UnpackerImpl() {}
 
 
@@ -63,6 +84,7 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
      * Get the set of options for the pack and unpack engines.
      * @return A sorted association of option key strings to option values.
      */
+    @Override
     public SortedMap<String, String> properties() {
         return props;
     }
@@ -71,6 +93,7 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
     Object _nunp;
 
 
+    @Override
     public String toString() {
         return Utils.getVersionString();
     }
@@ -88,6 +111,7 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
      * @param out a JarOutputStream.
      * @exception IOException if an error is encountered.
      */
+    @Override
     public synchronized void unpack(InputStream in, JarOutputStream out) throws IOException {
         if (in == null) {
             throw new NullPointerException("null input");
@@ -133,6 +157,7 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
      * @param out a JarOutputStream.
      * @exception IOException if an error is encountered.
      */
+    @Override
     public synchronized void unpack(File in, JarOutputStream out) throws IOException {
         if (in == null) {
             throw new NullPointerException("null input");

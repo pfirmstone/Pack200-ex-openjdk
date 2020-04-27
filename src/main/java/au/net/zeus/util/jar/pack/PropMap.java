@@ -67,6 +67,7 @@ final class PropMap implements SortedMap<String, String>  {
 
 
     // Override:
+    @Override
     public String put(String key, String value) {
         String oldValue = theMap.put(key, value);
         if (value != oldValue && !listenerList.isEmpty()) {
@@ -83,7 +84,7 @@ final class PropMap implements SortedMap<String, String>  {
     // All this other stuff is private to the current package.
     // Outide clients of Pack200 do not need to use it; they can
     // get by with generic SortedMap functionality.
-    private static Map<String, String> defaultProps;
+    private static final Map<String, String> defaultProps;
     static {
         Properties props = new Properties();
 

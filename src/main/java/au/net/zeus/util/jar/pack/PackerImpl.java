@@ -38,6 +38,7 @@ import java.io.OutputStream;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EventListener;
 import java.util.HashMap;
 import java.util.List;
 import java.util.ListIterator;
@@ -130,7 +131,8 @@ public class PackerImpl  extends TLGlobals implements Pack200.Packer {
      * Register a listener for changes to options.
      * @param listener  An object to be invoked when a property is changed.
      */
-    public void addPropertyChangeListener(PropertyChangeListener listener) {
+    @Override
+    public void addPropertyChangeListener(EventListener listener) {
         props.addListener(listener);
     }
 
@@ -138,7 +140,8 @@ public class PackerImpl  extends TLGlobals implements Pack200.Packer {
      * Remove a listener for the PropertyChange event.
      * @param listener  The PropertyChange listener to be removed.
      */
-    public void removePropertyChangeListener(PropertyChangeListener listener) {
+    @Override
+    public void removePropertyChangeListener(EventListener listener) {
         props.removeListener(listener);
     }
 
