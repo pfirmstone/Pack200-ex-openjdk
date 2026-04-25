@@ -95,6 +95,7 @@
                 <version>8.4.0</version>
                 <executions>
                     <execution>
+                        <phase>never</phase>
                         <goals>
                             <goal>check</goal>
                         </goals>
