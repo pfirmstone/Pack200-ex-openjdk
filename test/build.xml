@@ -44,8 +44,8 @@
     <property name="pack.jar"  value="${pack.home}/target/Pack200-ex-openjdk-${version}.jar"/>
 
     <!-- jtreg output directories -->
-    <property name="jtreg.report.dir" value="${pack.home}/target/jtreg/report"/>
-    <property name="jtreg.work.dir"   value="${pack.home}/target/jtreg/work"/>
+    <property name="jtreg.report.dir" location="${pack.home}/target/jtreg/report"/>
+    <property name="jtreg.work.dir"   location="${pack.home}/target/jtreg/work"/>
 
     <!-- Test suite directory -->
     <property name="test.dir" value="${basedir}/jdk"/>
@@ -60,7 +60,7 @@
                 <fileset dir="${jtreg.home}/lib" includes="*.jar" erroronmissingdir="false"/>
             </classpath>
             <arg value="-verbose:summary"/>
-            <arg value="-report:${jtreg.report.dir}"/>
+            <arg value="-r:${jtreg.report.dir}"/>
             <arg value="-workDir:${jtreg.work.dir}"/>
             <arg value="-jdk:${jdk.home}"/>
             <arg value="-cp:${pack.jar}"/>
