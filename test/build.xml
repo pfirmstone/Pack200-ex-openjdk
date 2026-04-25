@@ -48,7 +48,7 @@
     <property name="jtreg.work.dir"   location="${pack.home}/target/jtreg/work"/>
 
     <!-- Test suite directory -->
-    <property name="test.dir" location="${basedir}/jdk"/>
+    <property name="test.dir" location="${basedir}/test/jdk"/>
 
     <target name="test" description="Run jtreg tests">
         <mkdir dir="${jtreg.report.dir}"/>
