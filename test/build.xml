@@ -41,11 +41,11 @@
     <!-- Pack200 jar location -->
     <property name="pack.home" location="${basedir}/.."/>
     <property name="version"   value="1.14.0-SNAPSHOT"/>
-    <property name="pack.jar"  value="${pack.home}/target/Pack200-ex-openjdk-${version}.jar"/>
+    <property name="pack.jar"  value="${basedir}/target/Pack200-ex-openjdk-${version}.jar"/>
 
     <!-- jtreg output directories -->
-    <property name="jtreg.report.dir" location="${pack.home}/target/jtreg/report"/>
-    <property name="jtreg.work.dir"   location="${pack.home}/target/jtreg/work"/>
+    <property name="jtreg.report.dir" location="${basedir}/target/jtreg/report"/>
+    <property name="jtreg.work.dir"   location="${basedir}/target/jtreg/work"/>
 
     <!-- Test suite directory -->
     <property name="test.dir" location="${basedir}/test/jdk"/>
@@ -62,7 +62,7 @@
             <arg value="-verbose:summary"/>
             <arg value="-r:${jtreg.report.dir}"/>
             <arg value="-workDir:${jtreg.work.dir}"/>
-            <arg value="-jdk:${jdk.home}"/>
+            <arg value="-jdk:${test.dir}"/>
             <arg value="-cpa:${pack.jar}"/>
             <arg value="${test.dir}"/>
         </java>
