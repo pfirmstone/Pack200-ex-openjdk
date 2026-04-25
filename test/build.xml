@@ -53,14 +53,19 @@
     <target name="test" description="Run jtreg tests">
         <mkdir dir="${jtreg.report.dir}"/>
         <mkdir dir="${jtreg.work.dir}"/>
-        <exec executable="${jtreg.home}/bin/jtreg" failonerror="false">
+        <java classname="com.sun.javatest.regtest.Main"
+              fork="true"
+              failonerror="false">
+            <classpath>
+                <fileset dir="${jtreg.home}/lib" includes="*.jar" erroronmissingdir="false"/>
+            </classpath>
             <arg value="-verbose:summary"/>
             <arg value="-report:${jtreg.report.dir}"/>
             <arg value="-workDir:${jtreg.work.dir}"/>
             <arg value="-jdk:${jdk.home}"/>
             <arg value="-cp:${pack.jar}"/>
             <arg value="${test.dir}"/>
-        </exec>
+        </java>
     </target>
 
     <target name="clean" description="Clean jtreg output directories">
