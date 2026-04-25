@@ -39,9 +39,9 @@
     <property name="jdk.home" value="${java.home}"/>
 
     <!-- Pack200 jar location -->
-    <property name="pack.home" location="${basedir}/.."/>
-    <property name="version"   value="1.14.0-SNAPSHOT"/>
-    <property name="pack.jar"  value="${basedir}/target/Pack200-ex-openjdk-${version}.jar"/>
+    <property name="pack.home" location="${basedir}/target"/>
+    <property name="version"   value="-1.14.0-SNAPSHOT"/>
+    <property name="pack.jar"  value="${basedir}/target/Pack200-ex-openjdk${version}.jar"/>
 
     <!-- jtreg output directories -->
     <property name="jtreg.report.dir" location="${basedir}/target/jtreg/report"/>
