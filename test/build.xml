@@ -39,7 +39,7 @@
     <property name="jdk.home" value="${java.home}"/>
 
     <!-- Pack200 jar location -->
-    <property name="pack.home" value="${basedir}/.."/>
+    <property name="pack.home" location="${basedir}/.."/>
     <property name="version"   value="1.14.0-SNAPSHOT"/>
     <property name="pack.jar"  value="${pack.home}/target/Pack200-ex-openjdk-${version}.jar"/>
 
