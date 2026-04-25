@@ -1,1 +1,71 @@
-    <executable>${jtreg.home}/bin/jtreg</executable>
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ * Copyright (c) 2001, 2019, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+ *
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
+ *
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
+-->
+<project name="Pack200-jtreg-tests" default="test" basedir=".">
+
+    <!-- jtreg home: prefer JT_HOME env var, fall back to jtreg.home property -->
+    <property environment="env"/>
+    <condition property="jtreg.home" value="${env.JT_HOME}">
+        <isset property="env.JT_HOME"/>
+    </condition>
+    <property name="jtreg.home" value="/usr/local/jtreg"/>
+
+    <!-- Java home for running tests -->
+    <condition property="jdk.home" value="${env.JAVA_HOME}">
+        <isset property="env.JAVA_HOME"/>
+    </condition>
+    <property name="jdk.home" value="${java.home}"/>
+
+    <!-- Pack200 jar location -->
+    <property name="pack.home" value="${basedir}/.."/>
+    <property name="version"   value="1.14.0-SNAPSHOT"/>
+    <property name="pack.jar"  value="${pack.home}/target/Pack200-ex-openjdk-${version}.jar"/>
+
+    <!-- jtreg output directories -->
+    <property name="jtreg.report.dir" value="${pack.home}/target/jtreg/report"/>
+    <property name="jtreg.work.dir"   value="${pack.home}/target/jtreg/work"/>
+
+    <!-- Test suite directory -->
+    <property name="test.dir" value="${basedir}/jdk"/>
+
+    <target name="test" description="Run jtreg tests">
+        <mkdir dir="${jtreg.report.dir}"/>
+        <mkdir dir="${jtreg.work.dir}"/>
+        <exec executable="${jtreg.home}/bin/jtreg" failonerror="false">
+            <arg value="-verbose:summary"/>
+            <arg value="-report:${jtreg.report.dir}"/>
+            <arg value="-workDir:${jtreg.work.dir}"/>
+            <arg value="-jdk:${jdk.home}"/>
+            <arg value="-cp:${pack.jar}"/>
+            <arg value="${test.dir}"/>
+        </exec>
+    </target>
+
+    <target name="clean" description="Clean jtreg output directories">
+        <delete dir="${jtreg.report.dir}"/>
+        <delete dir="${jtreg.work.dir}"/>
+    </target>
+
+</project>
