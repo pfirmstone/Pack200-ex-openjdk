@@ -309,6 +309,7 @@ class PackageReader extends BandStructure {
         boolean haveFiles   = testBit(archiveOptions, AO_HAVE_FILE_HEADERS);
         boolean haveNumbers = testBit(archiveOptions, AO_HAVE_CP_NUMBERS);
         boolean haveCPExtra = testBit(archiveOptions, AO_HAVE_CP_EXTRAS);
+        boolean haveCPModuleDynamic = testBit(archiveOptions, AO_HAVE_CP_MODULE_DYNAMIC);
         initAttrIndexLimit();
 
         // now we are ready to use the data:
@@ -328,10 +329,11 @@ class PackageReader extends BandStructure {
         archiveSize0 = in.getBytesServed();
 
         int remainingHeaders = AH_LENGTH_MIN - AH_LENGTH_0 - AH_LENGTH_S;
-        if (haveFiles)    remainingHeaders += AH_FILE_HEADER_LEN;
-        if (haveSpecial)  remainingHeaders += AH_SPECIAL_FORMAT_LEN;
-        if (haveNumbers)  remainingHeaders += AH_CP_NUMBER_LEN;
-        if (haveCPExtra)  remainingHeaders += AH_CP_EXTRA_LEN;
+        if (haveFiles)              remainingHeaders += AH_FILE_HEADER_LEN;
+        if (haveSpecial)            remainingHeaders += AH_SPECIAL_FORMAT_LEN;
+        if (haveNumbers)            remainingHeaders += AH_CP_NUMBER_LEN;
+        if (haveCPExtra)            remainingHeaders += AH_CP_EXTRA_LEN;
+        if (haveCPModuleDynamic)    remainingHeaders += AH_CP_MODULE_DYNAMIC_LEN;
         archive_header_1.expectLength(remainingHeaders);
         archive_header_1.readFrom(in);
 
@@ -352,7 +354,7 @@ class PackageReader extends BandStructure {
             numAttrDefs = 0;
         }
 
-        readConstantPoolCounts(haveNumbers, haveCPExtra);
+        readConstantPoolCounts(haveNumbers, haveCPExtra, haveCPModuleDynamic);
 
         numInnerClasses = archive_header_1.getInt();
 
@@ -380,6 +382,10 @@ class PackageReader extends BandStructure {
     }
 
     void readConstantPoolCounts(boolean haveNumbers, boolean haveCPExtra) throws IOException {
+        readConstantPoolCounts(haveNumbers, haveCPExtra, false);
+    }
+
+    void readConstantPoolCounts(boolean haveNumbers, boolean haveCPExtra, boolean haveCPModuleDynamic) throws IOException {
         // size the constant pools:
         for (int k = 0; k < ConstantPool.TAGS_IN_ORDER.length; k++) {
             //  cp_counts:
@@ -406,6 +412,11 @@ class PackageReader extends BandStructure {
             //        #cp_InvokeDynamic_count :UNSIGNED5[1]
             //        #cp_BootstrapMethod_count :UNSIGNED5[1]
             //
+            //  cp_module_dynamic_counts:
+            //        #cp_Dynamic_count :UNSIGNED5[1]
+            //        #cp_Module_count :UNSIGNED5[1]
+            //        #cp_Package_count :UNSIGNED5[1]
+            //
             byte tag = ConstantPool.TAGS_IN_ORDER[k];
             if (!haveNumbers) {
                 // These four counts are optional.
@@ -424,6 +435,15 @@ class PackageReader extends BandStructure {
                 case CONSTANT_MethodType:
                 case CONSTANT_InvokeDynamic:
                 case CONSTANT_BootstrapMethod:
+                    continue;
+                }
+            }
+            if (!haveCPModuleDynamic) {
+                // These three counts are optional.
+                switch (tag) {
+                case CONSTANT_Dynamic:
+                case CONSTANT_Module:
+                case CONSTANT_Package:
                     continue;
                 }
             }
@@ -630,6 +650,39 @@ class PackageReader extends BandStructure {
                 }
                 cp_InvokeDynamic_spec.doneDisbursing();
                 cp_InvokeDynamic_desc.doneDisbursing();
+                break;
+            case CONSTANT_Dynamic:
+                cp_Dynamic_spec.expectLength(cpMap.length);
+                cp_Dynamic_spec.readFrom(in);
+                cp_Dynamic_spec.setIndex(getCPIndex(CONSTANT_BootstrapMethod));
+                cp_Dynamic_desc.expectLength(cpMap.length);
+                cp_Dynamic_desc.readFrom(in);
+                cp_Dynamic_desc.setIndex(getCPIndex(CONSTANT_NameandType));
+                for (int i = 0; i < cpMap.length; i++) {
+                    BootstrapMethodEntry bss   = (BootstrapMethodEntry) cp_Dynamic_spec.getRef();
+                    DescriptorEntry      descr = (DescriptorEntry)      cp_Dynamic_desc.getRef();
+                    cpMap[i] = ConstantPool.getDynamicEntry(bss, descr);
+                }
+                cp_Dynamic_spec.doneDisbursing();
+                cp_Dynamic_desc.doneDisbursing();
+                break;
+            case CONSTANT_Module:
+                cp_Module.expectLength(cpMap.length);
+                cp_Module.readFrom(in);
+                cp_Module.setIndex(getCPIndex(CONSTANT_Utf8));
+                for (int i = 0; i < cpMap.length; i++) {
+                    cpMap[i] = ConstantPool.getModuleEntry(cp_Module.getRef().stringValue());
+                }
+                cp_Module.doneDisbursing();
+                break;
+            case CONSTANT_Package:
+                cp_Package.expectLength(cpMap.length);
+                cp_Package.readFrom(in);
+                cp_Package.setIndex(getCPIndex(CONSTANT_Utf8));
+                for (int i = 0; i < cpMap.length; i++) {
+                    cpMap[i] = ConstantPool.getPackageEntry(cp_Package.getRef().stringValue());
+                }
+                cp_Package.doneDisbursing();
                 break;
             case CONSTANT_BootstrapMethod:
                 if (cpMap.length > 0) {

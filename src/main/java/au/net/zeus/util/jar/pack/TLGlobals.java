@@ -31,6 +31,9 @@ import au.net.zeus.util.jar.pack.ConstantPool.MemberEntry;
 import au.net.zeus.util.jar.pack.ConstantPool.MethodHandleEntry;
 import au.net.zeus.util.jar.pack.ConstantPool.MethodTypeEntry;
 import au.net.zeus.util.jar.pack.ConstantPool.InvokeDynamicEntry;
+import au.net.zeus.util.jar.pack.ConstantPool.DynamicEntry;
+import au.net.zeus.util.jar.pack.ConstantPool.ModuleEntry;
+import au.net.zeus.util.jar.pack.ConstantPool.PackageEntry;
 import au.net.zeus.util.jar.pack.ConstantPool.BootstrapMethodEntry;
 import au.net.zeus.util.jar.pack.ConstantPool.SignatureEntry;
 import au.net.zeus.util.jar.pack.ConstantPool.Utf8Entry;
@@ -63,6 +66,9 @@ class TLGlobals {
     private final Map<String, MethodHandleEntry> methodHandleEntries;
     private final Map<String, MethodTypeEntry> methodTypeEntries;
     private final Map<String, InvokeDynamicEntry> invokeDynamicEntries;
+    private final Map<String, DynamicEntry> dynamicEntries;
+    private final Map<String, ModuleEntry> moduleEntries;
+    private final Map<String, PackageEntry> packageEntries;
     private final Map<String, BootstrapMethodEntry> bootstrapMethodEntries;
 
     TLGlobals() {
@@ -75,6 +81,9 @@ class TLGlobals {
         methodHandleEntries = new HashMap<>();
         methodTypeEntries = new HashMap<>();
         invokeDynamicEntries = new HashMap<>();
+        dynamicEntries = new HashMap<>();
+        moduleEntries = new HashMap<>();
+        packageEntries = new HashMap<>();
         bootstrapMethodEntries = new HashMap<>();
         props = new PropMap();
     }
@@ -117,6 +126,18 @@ class TLGlobals {
 
     Map<String, InvokeDynamicEntry> getInvokeDynamicEntries() {
         return invokeDynamicEntries;
+    }
+
+    Map<String, DynamicEntry> getDynamicEntries() {
+        return dynamicEntries;
+    }
+
+    Map<String, ModuleEntry> getModuleEntries() {
+        return moduleEntries;
+    }
+
+    Map<String, PackageEntry> getPackageEntries() {
+        return packageEntries;
     }
 
     Map<String, BootstrapMethodEntry> getBootstrapMethodEntries() {

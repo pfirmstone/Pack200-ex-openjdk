@@ -370,6 +370,16 @@ class PackageWriter extends BandStructure {
         if (haveCPExtra)
             headerSizeForDebug += AH_CP_EXTRA_LEN;
 
+        // AO_HAVE_CP_MODULE_DYNAMIC is set if there are Dynamic, Module, or Package entries.
+        boolean haveCPModuleDynamic = testBit(archiveOptions, AO_HAVE_CP_MODULE_DYNAMIC);
+        if (!haveCPModuleDynamic) {
+            haveCPModuleDynamic |= pkg.cp.haveModuleDynamicTags();
+            if (haveCPModuleDynamic)
+                archiveOptions |= AO_HAVE_CP_MODULE_DYNAMIC;
+        }
+        if (haveCPModuleDynamic)
+            headerSizeForDebug += AH_CP_MODULE_DYNAMIC_LEN;
+
         // the archiveOptions are all initialized, sanity check now!.
         checkVersion();
 
@@ -407,7 +417,7 @@ class PackageWriter extends BandStructure {
             assert(attrDefsWritten.length == 0);
         }
 
-        writeConstantPoolCounts(haveNumbers, haveCPExtra);
+        writeConstantPoolCounts(haveNumbers, haveCPExtra, haveCPModuleDynamic);
 
         archive_header_1.putInt(pkg.getAllInnerClasses().size());
         archive_header_1.putInt(pkg.defaultClassVersion.minor);
@@ -446,7 +456,7 @@ class PackageWriter extends BandStructure {
         assert(all_bands.outputSize() == archiveSize0+archiveSize1);
     }
 
-    void writeConstantPoolCounts(boolean haveNumbers, boolean haveCPExtra) throws IOException {
+    void writeConstantPoolCounts(boolean haveNumbers, boolean haveCPExtra, boolean haveCPModuleDynamic) throws IOException {
         for (byte tag : ConstantPool.TAGS_IN_ORDER) {
             int count = pkg.cp.getIndexByTag(tag).size();
             switch (tag) {
@@ -474,6 +484,16 @@ class PackageWriter extends BandStructure {
             case CONSTANT_BootstrapMethod:
                 // Omit counts for newer entities if possible.
                 if (!haveCPExtra) {
+                    assert(count == 0);
+                    continue;
+                }
+                break;
+
+            case CONSTANT_Dynamic:
+            case CONSTANT_Module:
+            case CONSTANT_Package:
+                // Omit counts for JDK 9/11 entities if not present.
+                if (!haveCPModuleDynamic) {
                     assert(count == 0);
                     continue;
                 }
@@ -609,6 +629,25 @@ class PackageWriter extends BandStructure {
                     InvokeDynamicEntry e = (InvokeDynamicEntry) cpMap[i];
                     cp_InvokeDynamic_spec.putRef(e.bssRef);
                     cp_InvokeDynamic_desc.putRef(e.descRef);
+                }
+                break;
+            case CONSTANT_Dynamic:
+                for (int i = 0; i < cpMap.length; i++) {
+                    DynamicEntry e = (DynamicEntry) cpMap[i];
+                    cp_Dynamic_spec.putRef(e.bssRef);
+                    cp_Dynamic_desc.putRef(e.descRef);
+                }
+                break;
+            case CONSTANT_Module:
+                for (int i = 0; i < cpMap.length; i++) {
+                    ModuleEntry e = (ModuleEntry) cpMap[i];
+                    cp_Module.putRef(e.ref);
+                }
+                break;
+            case CONSTANT_Package:
+                for (int i = 0; i < cpMap.length; i++) {
+                    PackageEntry e = (PackageEntry) cpMap[i];
+                    cp_Package.putRef(e.ref);
                 }
                 break;
             case CONSTANT_BootstrapMethod:
