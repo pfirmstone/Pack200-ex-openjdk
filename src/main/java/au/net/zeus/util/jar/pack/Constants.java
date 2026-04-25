@@ -63,6 +63,8 @@ class Constants {
         1.23 to 1.23.X 67,0
         1.24 to 1.24.X 68,0
         1.25 to 1.25.X 69,0
+        1.26 to 1.26.X 70,0
+        1.27 to 1.27.X 71,0
     */
 
     public static final Package.Version JAVA_MIN_CLASS_VERSION =
@@ -131,6 +133,12 @@ class Constants {
     public static final Package.Version JAVA25_MAX_CLASS_VERSION =
             Package.Version.of(69, 00);
 
+    public static final Package.Version JAVA26_MAX_CLASS_VERSION =
+            Package.Version.of(70, 00);
+
+    public static final Package.Version JAVA27_MAX_CLASS_VERSION =
+            Package.Version.of(71, 00);
+
     public static final int JAVA_PACKAGE_MAGIC = 0xCAFED00D;
 
     public static final Package.Version JAVA5_PACKAGE_VERSION =
@@ -153,7 +161,7 @@ class Constants {
 
     // upper limit, should point to the latest class version
     public static final Package.Version JAVA_MAX_CLASS_VERSION =
-            JAVA25_MAX_CLASS_VERSION;
+            JAVA27_MAX_CLASS_VERSION;
 
     // upper limit should point to the latest package version, for version info!.
     public static final Package.Version MAX_PACKAGE_VERSION =
