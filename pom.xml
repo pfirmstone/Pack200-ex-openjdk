@@ -139,7 +139,7 @@
                 <executions>
                     <execution>
                         <id>test</id>
-                        <phase>test</phase>
+                        <phase>verify</phase>
                         <configuration>
                             <target>
                                 <ant antfile="./test/build.xml">
