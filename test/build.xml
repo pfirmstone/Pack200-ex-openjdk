@@ -64,6 +64,8 @@
             <arg value="-workDir:${jtreg.work.dir}"/>
             <arg value="-jdk:${jdk.home}"/>
             <arg value="-cpa:${pack.jar}"/>
+            <arg value="-vmoption:-Dpack.home=${pack.home}"/>
+            <arg value="-vmoption:-Dpack.version=${version}"/>
             <arg value="${test.dir}"/>
         </java>
     </target>
