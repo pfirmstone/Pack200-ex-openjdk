@@ -63,7 +63,7 @@
             <arg value="-r:${jtreg.report.dir}"/>
             <arg value="-workDir:${jtreg.work.dir}"/>
             <arg value="-jdk:${jdk.home}"/>
-            <arg value="-cp:${pack.jar}"/>
+            <arg value="-cpa:${pack.jar}"/>
             <arg value="${test.dir}"/>
         </java>
     </target>
