@@ -90,7 +90,7 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
     }
 
     // Back-pointer to NativeUnpacker, when active.
-    Object _nunp;
+    volatile Object _nunp;
 
 
     @Override
@@ -135,7 +135,9 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
                 Utils.markJarFile(out);
             } else {
                 try {
-                    (new NativeUnpack(this)).run(in0, out);
+                    NativeUnpack nu = new NativeUnpack(this);
+                    nu.thisEscape();
+                    nu.run(in0, out);
                 } catch (UnsatisfiedLinkError | NoClassDefFoundError ex) {
                     // failover to java implementation
                     (new DoUnpack()).run(in0, out);

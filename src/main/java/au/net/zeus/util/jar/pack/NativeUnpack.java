@@ -99,7 +99,10 @@ class NativeUnpack {
         super();
         _p200  = p200;
         _props = p200.props;
-        p200._nunp = this;
+    }
+    
+    void thisEscape(){
+        _p200._nunp = this;
     }
 
     // for JNI callbacks

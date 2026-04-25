@@ -6,4 +6,6 @@ grant {
     permission java.util.PropertyPermission "au.net.zeus.util.jar.pack.verbose", "read";
     permission java.util.PropertyPermission "au.net.zeus.util.jar.pack.class.format.error", "read";
     permission java.util.PropertyPermission "au.net.zeus.util.jar.Pack200.Unpacker", "read";
+    permission java.util.PropertyPermission "net.pack200.Pack200.Packer", "read";
+    permission java.util.PropertyPermission "net.pack200.Pack200.Unpacker", "read";
 };

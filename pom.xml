@@ -67,7 +67,7 @@
             <plugin>
               <groupId>org.apache.maven.plugins</groupId>
               <artifactId>maven-jar-plugin</artifactId>
-              <version>2.3</version>
+              <version>2.6</version>
               <configuration>
                   <useDefaultManifestFile>true</useDefaultManifestFile>
                   <archive>
@@ -104,7 +104,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
-                <version>2.1.1</version>
+                <version>3.4.0</version>
                 <executions>
                     <execution>
                         <id>attach-sources</id>
@@ -117,12 +117,10 @@
             </plugin>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.8.1</version>
+                <version>3.15.0</version>
                 <configuration>
-                    <!-- Change source and target to 11 when building javadoc -->
-                        <source>8</source>
-                        <target>8</target>
-                        <optimize>true</optimize>
+                    <!-- Change release to 11 when building javadoc -->
+                        <release>8</release>
                         <encoding>UTF-8</encoding>
                         <meminitial>128m</meminitial>
                         <maxmem>1024m</maxmem>
