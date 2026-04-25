@@ -30,6 +30,7 @@ import au.net.zeus.util.jar.pack.ConstantPool.Entry;
 import au.net.zeus.util.jar.pack.ConstantPool.Index;
 import au.net.zeus.util.jar.pack.ConstantPool.NumberEntry;
 import au.net.zeus.util.jar.pack.ConstantPool.MethodHandleEntry;
+import au.net.zeus.util.jar.pack.ConstantPool.DynamicEntry;
 import au.net.zeus.util.jar.pack.ConstantPool.BootstrapMethodEntry;
 import au.net.zeus.util.jar.pack.Package.Class;
 import au.net.zeus.util.jar.pack.Package.InnerClass;
@@ -150,6 +151,8 @@ class ClassWriter {
                 case CONSTANT_Class:
                 case CONSTANT_String:
                 case CONSTANT_MethodType:
+                case CONSTANT_Module:
+                case CONSTANT_Package:
                     writeRef(e.getRef(0));
                     break;
                 case CONSTANT_MethodHandle:
@@ -163,6 +166,11 @@ class ClassWriter {
                 case CONSTANT_NameandType:
                     writeRef(e.getRef(0));
                     writeRef(e.getRef(1));
+                    break;
+                case CONSTANT_Dynamic:
+                    DynamicEntry de = (DynamicEntry) e;
+                    writeRef(de.getRef(0), bsmIndex);
+                    writeRef(de.getRef(1));
                     break;
                 case CONSTANT_InvokeDynamic:
                     writeRef(e.getRef(0), bsmIndex);

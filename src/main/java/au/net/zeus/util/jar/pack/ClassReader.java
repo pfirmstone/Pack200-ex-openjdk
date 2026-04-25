@@ -268,6 +268,8 @@ class ClassReader {
                 case CONSTANT_Class:
                 case CONSTANT_String:
                 case CONSTANT_MethodType:
+                case CONSTANT_Module:
+                case CONSTANT_Package:
                     fixups[fptr++] = i;
                     fixups[fptr++] = tag;
                     fixups[fptr++] = in.readUnsignedShort();
@@ -282,6 +284,7 @@ class ClassReader {
                     fixups[fptr++] = in.readUnsignedShort();
                     fixups[fptr++] = in.readUnsignedShort();
                     break;
+                case CONSTANT_Dynamic:
                 case CONSTANT_InvokeDynamic:
                     fixups[fptr++] = i;
                     fixups[fptr++] = tag;
@@ -330,6 +333,12 @@ class ClassReader {
                 case CONSTANT_String:
                     cpMap[cpi] = ConstantPool.getStringEntry(cpMap[ref].stringValue());
                     break;
+                case CONSTANT_Module:
+                    cpMap[cpi] = ConstantPool.getModuleEntry(cpMap[ref].stringValue());
+                    break;
+                case CONSTANT_Package:
+                    cpMap[cpi] = ConstantPool.getPackageEntry(cpMap[ref].stringValue());
+                    break;
                 case CONSTANT_Fieldref:
                 case CONSTANT_Methodref:
                 case CONSTANT_InterfaceMethodref:
@@ -350,6 +359,7 @@ class ClassReader {
                     MemberEntry memRef = (MemberEntry) checkTag(cpMap[ref2], CONSTANT_AnyMember);
                     cpMap[cpi] = ConstantPool.getMethodHandleEntry(refKind, memRef);
                     break;
+                case CONSTANT_Dynamic:
                 case CONSTANT_InvokeDynamic:
                     DescriptorEntry idescr = (DescriptorEntry) checkTag(cpMap[ref2], CONSTANT_NameandType);
                     cpMap[cpi] = new UnresolvedEntry((byte)tag, (-1 ^ ref), idescr);
@@ -381,6 +391,11 @@ class ClassReader {
                 BootstrapMethodEntry iboots = cls.bootstrapMethods.get((Integer) refsOrIndexes[0]);
                 DescriptorEntry         idescr = (DescriptorEntry) refsOrIndexes[1];
                 res = ConstantPool.getInvokeDynamicEntry(iboots, idescr);
+                break;
+            case CONSTANT_Dynamic:
+                BootstrapMethodEntry dboots = cls.bootstrapMethods.get((Integer) refsOrIndexes[0]);
+                DescriptorEntry         ddescr = (DescriptorEntry) refsOrIndexes[1];
+                res = ConstantPool.getDynamicEntry(dboots, ddescr);
                 break;
             default:
                 throw new AssertionError();

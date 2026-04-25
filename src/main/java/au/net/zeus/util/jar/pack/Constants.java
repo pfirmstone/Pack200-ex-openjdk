@@ -52,6 +52,19 @@ class Constants {
         1.12 to 1.12.X 56,0
         1.13 to 1.13.X 57,0
         1.14 to 1.14.X 58,0
+        1.15 to 1.15.X 59,0
+        1.16 to 1.16.X 60,0
+        1.17 to 1.17.X 61,0
+        1.18 to 1.18.X 62,0
+        1.19 to 1.19.X 63,0
+        1.20 to 1.20.X 64,0
+        1.21 to 1.21.X 65,0
+        1.22 to 1.22.X 66,0
+        1.23 to 1.23.X 67,0
+        1.24 to 1.24.X 68,0
+        1.25 to 1.25.X 69,0
+        1.26 to 1.26.X 70,0
+        1.27 to 1.27.X 71,0
     */
 
     public static final Package.Version JAVA_MIN_CLASS_VERSION =
@@ -87,6 +100,45 @@ class Constants {
     public static final Package.Version JAVA14_MAX_CLASS_VERSION =
             Package.Version.of(58, 00);
 
+    public static final Package.Version JAVA15_MAX_CLASS_VERSION =
+            Package.Version.of(59, 00);
+
+    public static final Package.Version JAVA16_MAX_CLASS_VERSION =
+            Package.Version.of(60, 00);
+
+    public static final Package.Version JAVA17_MAX_CLASS_VERSION =
+            Package.Version.of(61, 00);
+
+    public static final Package.Version JAVA18_MAX_CLASS_VERSION =
+            Package.Version.of(62, 00);
+
+    public static final Package.Version JAVA19_MAX_CLASS_VERSION =
+            Package.Version.of(63, 00);
+
+    public static final Package.Version JAVA20_MAX_CLASS_VERSION =
+            Package.Version.of(64, 00);
+
+    public static final Package.Version JAVA21_MAX_CLASS_VERSION =
+            Package.Version.of(65, 00);
+
+    public static final Package.Version JAVA22_MAX_CLASS_VERSION =
+            Package.Version.of(66, 00);
+
+    public static final Package.Version JAVA23_MAX_CLASS_VERSION =
+            Package.Version.of(67, 00);
+
+    public static final Package.Version JAVA24_MAX_CLASS_VERSION =
+            Package.Version.of(68, 00);
+
+    public static final Package.Version JAVA25_MAX_CLASS_VERSION =
+            Package.Version.of(69, 00);
+
+    public static final Package.Version JAVA26_MAX_CLASS_VERSION =
+            Package.Version.of(70, 00);
+
+    public static final Package.Version JAVA27_MAX_CLASS_VERSION =
+            Package.Version.of(71, 00);
+
     public static final int JAVA_PACKAGE_MAGIC = 0xCAFED00D;
 
     public static final Package.Version JAVA5_PACKAGE_VERSION =
@@ -109,7 +161,7 @@ class Constants {
 
     // upper limit, should point to the latest class version
     public static final Package.Version JAVA_MAX_CLASS_VERSION =
-            JAVA13_MAX_CLASS_VERSION;
+            JAVA27_MAX_CLASS_VERSION;
 
     // upper limit should point to the latest package version, for version info!.
     public static final Package.Version MAX_PACKAGE_VERSION =
@@ -136,27 +188,20 @@ class Constants {
     public static final byte CONSTANT_unused14 = 14;
     public static final byte CONSTANT_MethodHandle = 15; // JDK 7
     public static final byte CONSTANT_MethodType = 16; // JDK 7
-    public static final byte CONSTANT_unused17 = 17;  // JDK 11 CONSTANT_Dynamic Conflict???
+    public static final byte CONSTANT_Dynamic = 17; // JDK 11
     public static final byte CONSTANT_InvokeDynamic = 18; // JDK 7
     public static final byte CONSTANT_Module = 19; // JDK 9
     public static final byte CONSTANT_Package = 20; // JDK 9
-    
-    /**
-     * CONSTANT_Dynamic = 17 in Java 11.  Does this mean we need to change
-     * CONSTANT_BootstrapMethod?
-     * 
-     * Further compounding this issue, it is proposed in JDK-8161256 two more
-     * pool constants:
-     * CONSTANT_Group = 13
-     * CONSTANT_Bytes = 2
-     * 
-     */
 
     // pseudo-constants:
     public static final byte CONSTANT_None = 0;
     public static final byte CONSTANT_Signature = CONSTANT_unused13;
-    public static final byte CONSTANT_BootstrapMethod = CONSTANT_unused17; // used only in InvokeDynamic constants
-    public static final byte CONSTANT_Limit = 21;
+    // CONSTANT_BootstrapMethod is a pseudo-tag (not a real class file constant pool tag).
+    // It is used internally in the pack200 format to represent BootstrapMethodEntry objects.
+    // It is assigned value 22 (above the real class file tag range of 1-20) to avoid
+    // conflicting with CONSTANT_Dynamic (tag 17), which was introduced in Java 11.
+    public static final byte CONSTANT_BootstrapMethod = 22; // used only in InvokeDynamic/Dynamic constants
+    public static final byte CONSTANT_Limit = 23;
 
     public static final byte CONSTANT_All = 50;  // combined global map
     public static final byte CONSTANT_LoadableValue = 51; // used for 'KL' and qldc operands
@@ -231,7 +276,9 @@ class Constants {
     public static final int AO_HAVE_FIELD_FLAGS_HI    = 1<<10;
     public static final int AO_HAVE_METHOD_FLAGS_HI   = 1<<11;
     public static final int AO_HAVE_CODE_FLAGS_HI     = 1<<12;
-    public static final int AO_UNUSED_MBZ          = (-1)<<13;  // option bits reserved for future use
+    // Bit 13: set if the archive contains CONSTANT_Dynamic, CONSTANT_Module, or CONSTANT_Package entries
+    public static final int AO_HAVE_CP_MODULE_DYNAMIC = 1<<13;
+    public static final int AO_UNUSED_MBZ          = (-1)<<14;  // option bits reserved for future use
 
     public static final int LG_AO_HAVE_XXX_FLAGS_HI   = 9;
 

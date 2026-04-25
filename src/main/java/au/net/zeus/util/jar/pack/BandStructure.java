@@ -1420,6 +1420,7 @@ class BandStructure {
     static final int AH_SPECIAL_FORMAT_LEN = 2; // special_counts = {layouts, band_headers}
     static final int AH_CP_NUMBER_LEN = 4;  // cp_number_counts = {int, float, long, double}
     static final int AH_CP_EXTRA_LEN = 4;  // cp_attr_counts = {MH, MT, InDy, BSM}
+    static final int AH_CP_MODULE_DYNAMIC_LEN = 3;  // cp_module_dynamic_counts = {Dynamic, Module, Package}
 
     // Common structure of attribute band groups:
     static final int AB_FLAGS_HI = 0;
@@ -1491,6 +1492,11 @@ class BandStructure {
     CPRefBand cp_BootstrapMethod_arg = cp_bands.newCPRefBand("cp_BootstrapMethod_arg", DELTA5, CONSTANT_LoadableValue);
     CPRefBand cp_InvokeDynamic_spec = cp_bands.newCPRefBand("cp_InvokeDynamic_spec", DELTA5, CONSTANT_BootstrapMethod);
     CPRefBand cp_InvokeDynamic_desc = cp_bands.newCPRefBand("cp_InvokeDynamic_desc", UDELTA5, CONSTANT_NameandType);
+    // Bands for JDK 11+ CONSTANT_Dynamic and JDK 9+ CONSTANT_Module/CONSTANT_Package:
+    CPRefBand cp_Dynamic_spec = cp_bands.newCPRefBand("cp_Dynamic_spec", DELTA5, CONSTANT_BootstrapMethod);
+    CPRefBand cp_Dynamic_desc = cp_bands.newCPRefBand("cp_Dynamic_desc", UDELTA5, CONSTANT_NameandType);
+    CPRefBand cp_Module = cp_bands.newCPRefBand("cp_Module", UDELTA5, CONSTANT_Utf8);
+    CPRefBand cp_Package = cp_bands.newCPRefBand("cp_Package", UDELTA5, CONSTANT_Utf8);
 
     // bands for carrying attribute definitions:
     MultiBand attr_definition_bands = all_bands.newMultiBand("(attr_definition_bands)", UNSIGNED5);

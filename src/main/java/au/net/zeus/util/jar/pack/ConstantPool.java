@@ -179,6 +179,43 @@ class ConstantPool {
         return e;
     }
 
+    /** Factory for Dynamic constants (JDK 11+). */
+    public static DynamicEntry getDynamicEntry(BootstrapMethodEntry bssRef, DescriptorEntry descRef) {
+        Map<String, DynamicEntry> dynamicEntries = Utils.getTLGlobals().getDynamicEntries();
+        String key = DynamicEntry.stringValueOf(bssRef, descRef);
+        DynamicEntry e = dynamicEntries.get(key);
+        if (e == null) {
+            e = new DynamicEntry(bssRef, descRef);
+            assert(e.stringValue().equals(key));
+            dynamicEntries.put(key, e);
+        }
+        return e;
+    }
+
+    /** Factory for Module constants (JDK 9+). */
+    public static ModuleEntry getModuleEntry(String name) {
+        Map<String, ModuleEntry> moduleEntries = Utils.getTLGlobals().getModuleEntries();
+        ModuleEntry e = moduleEntries.get(name);
+        if (e == null) {
+            e = new ModuleEntry(getUtf8Entry(name));
+            assert(name.equals(e.stringValue()));
+            moduleEntries.put(e.stringValue(), e);
+        }
+        return e;
+    }
+
+    /** Factory for Package constants (JDK 9+). */
+    public static PackageEntry getPackageEntry(String name) {
+        Map<String, PackageEntry> packageEntries = Utils.getTLGlobals().getPackageEntries();
+        PackageEntry e = packageEntries.get(name);
+        if (e == null) {
+            e = new PackageEntry(getUtf8Entry(name));
+            assert(name.equals(e.stringValue()));
+            packageEntries.put(e.stringValue(), e);
+        }
+        return e;
+    }
+
     /** Factory for BootstrapMethod pseudo-constants. */
     public static BootstrapMethodEntry getBootstrapMethodEntry(MethodHandleEntry bsmRef, Entry[] argRefs) {
         Map<String, BootstrapMethodEntry> bootstrapMethodEntries = Utils.getTLGlobals().getBootstrapMethodEntries();
@@ -1051,6 +1088,114 @@ class ConstantPool {
         }
     }
 
+    /** @since 11, JEP 309 (CONSTANT_Dynamic) */
+    public static
+    class DynamicEntry extends Entry {
+        final BootstrapMethodEntry bssRef;
+        final DescriptorEntry descRef;
+        public Entry getRef(int i) {
+            if (i == 0)  return bssRef;
+            if (i == 1)  return descRef;
+            return null;
+        }
+        protected int computeValueHash() {
+            int hc2 = descRef.hashCode();
+            return (bssRef.hashCode() + (hc2 << 8)) ^ hc2;
+        }
+
+        DynamicEntry(BootstrapMethodEntry bssRef, DescriptorEntry descRef) {
+            super(CONSTANT_Dynamic);
+            this.bssRef  = bssRef;
+            this.descRef = descRef;
+            hashCode();  // force computation of valueHash
+        }
+        public boolean equals(Object o) {
+            if (o == null || o.getClass() != DynamicEntry.class) {
+                return false;
+            }
+            DynamicEntry that = (DynamicEntry)o;
+            return this.bssRef.eq(that.bssRef)
+                && this.descRef.eq(that.descRef);
+        }
+        public int compareTo(Object o) {
+            int x = superCompareTo(o);
+            if (x == 0) {
+                DynamicEntry that = (DynamicEntry)o;
+                x = this.descRef.compareTo(that.descRef);
+                if (x == 0)
+                    x = this.bssRef.compareTo(that.bssRef);
+            }
+            return x;
+        }
+        public String stringValue() {
+            return stringValueOf(bssRef, descRef);
+        }
+        static
+        String stringValueOf(BootstrapMethodEntry bssRef, DescriptorEntry descRef) {
+            return "Dynamic:"+bssRef.stringValue()+"."+descRef.stringValue();
+        }
+    }
+
+    /** @since 9 (CONSTANT_Module) */
+    public static
+    class ModuleEntry extends Entry {
+        final Utf8Entry ref;
+        public Entry getRef(int i) { return i == 0 ? ref : null; }
+
+        protected int computeValueHash() {
+            return ref.hashCode() + tag;
+        }
+        ModuleEntry(Entry ref) {
+            super(CONSTANT_Module);
+            this.ref = (Utf8Entry) ref;
+            hashCode();  // force computation of valueHash
+        }
+        public boolean equals(Object o) {
+            return (o != null && o.getClass() == ModuleEntry.class
+                    && ((ModuleEntry) o).ref.eq(ref));
+        }
+        public int compareTo(Object o) {
+            int x = superCompareTo(o);
+            if (x == 0) {
+                x = ref.compareTo(((ModuleEntry)o).ref);
+            }
+            return x;
+        }
+        public String stringValue() {
+            return ref.stringValue();
+        }
+    }
+
+    /** @since 9 (CONSTANT_Package) */
+    public static
+    class PackageEntry extends Entry {
+        final Utf8Entry ref;
+        public Entry getRef(int i) { return i == 0 ? ref : null; }
+
+        protected int computeValueHash() {
+            return ref.hashCode() + tag;
+        }
+        PackageEntry(Entry ref) {
+            super(CONSTANT_Package);
+            this.ref = (Utf8Entry) ref;
+            hashCode();  // force computation of valueHash
+        }
+        public boolean equals(Object o) {
+            return (o != null && o.getClass() == PackageEntry.class
+                    && ((PackageEntry) o).ref.eq(ref));
+        }
+        public int compareTo(Object o) {
+            int x = superCompareTo(o);
+            if (x == 0) {
+                x = ref.compareTo(((PackageEntry)o).ref);
+            }
+            return x;
+        }
+        public String stringValue() {
+            return ref.stringValue();
+        }
+    }
+
     // Handy constants:
     protected static final Entry[] noRefs = {};
     protected static final ClassEntry[] noClassRefs = {};
@@ -1484,6 +1629,13 @@ class ConstantPool {
             return false;
         }
 
+        public boolean haveModuleDynamicTags() {
+            for (byte tag : MODULE_DYNAMIC_TAGS) {
+                if (getIndexByTag(tag).size() > 0)  return true;
+            }
+            return false;
+        }
+
     }
 
     /** Close the set cpRefs under the getRef(*) relation.
@@ -1551,7 +1703,10 @@ class ConstantPool {
             case CONSTANT_NameandType:          return "NameandType";
             case CONSTANT_MethodHandle:         return "MethodHandle";
             case CONSTANT_MethodType:           return "MethodType";
+            case CONSTANT_Dynamic:              return "Dynamic";
             case CONSTANT_InvokeDynamic:        return "InvokeDynamic";
+            case CONSTANT_Module:               return "Module";
+            case CONSTANT_Package:              return "Package";
 
                 // pseudo-tags:
             case CONSTANT_All:                  return "**All";
@@ -1598,8 +1753,13 @@ class ConstantPool {
         // Constants defined in JDK 7 and later:
         CONSTANT_MethodHandle,
         CONSTANT_MethodType,
-        CONSTANT_BootstrapMethod,  // pseudo-tag, really stored in a class attribute
-        CONSTANT_InvokeDynamic
+        CONSTANT_BootstrapMethod,  // pseudo-tag (value=22), really stored in a class attribute
+        CONSTANT_InvokeDynamic,
+
+        // Constants defined in JDK 9 and JDK 11 (gated by AO_HAVE_CP_MODULE_DYNAMIC):
+        CONSTANT_Dynamic,          // JDK 11
+        CONSTANT_Module,           // JDK 9
+        CONSTANT_Package           // JDK 9
     };
     static final byte TAG_ORDER[];
     static {
@@ -1622,10 +1782,16 @@ class ConstantPool {
         CONSTANT_BootstrapMethod, // pseudo-tag
         CONSTANT_InvokeDynamic
     };
+    static final byte[] MODULE_DYNAMIC_TAGS = { // for AO_HAVE_CP_MODULE_DYNAMIC
+        CONSTANT_Dynamic,          // JDK 11, loadable
+        CONSTANT_Module,           // JDK 9
+        CONSTANT_Package           // JDK 9
+    };
     static final byte[] LOADABLE_VALUE_TAGS = { // for CONSTANT_LoadableValue
         CONSTANT_Integer, CONSTANT_Float, CONSTANT_Long, CONSTANT_Double,
         CONSTANT_String, CONSTANT_Class,
-        CONSTANT_MethodHandle, CONSTANT_MethodType
+        CONSTANT_MethodHandle, CONSTANT_MethodType,
+        CONSTANT_Dynamic           // JDK 11
     };
     static final byte[] ANY_MEMBER_TAGS = { // for CONSTANT_AnyMember
         CONSTANT_Fieldref, CONSTANT_Methodref, CONSTANT_InterfaceMethodref
@@ -1639,6 +1805,7 @@ class ConstantPool {
             verifyTagOrder(TAGS_IN_ORDER) &&
             verifyTagOrder(NUMBER_TAGS) &&
             verifyTagOrder(EXTRA_TAGS) &&
+            verifyTagOrder(MODULE_DYNAMIC_TAGS) &&
             verifyTagOrder(LOADABLE_VALUE_TAGS) &&
             verifyTagOrder(ANY_MEMBER_TAGS) &&
             verifyTagOrder(FIELD_SPECIFIC_TAGS)
