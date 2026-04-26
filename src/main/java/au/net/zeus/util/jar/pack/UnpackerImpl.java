@@ -165,6 +165,9 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
     }
 
     private class DoUnpack {
+        // Buffer size used when streaming file bytes to the JarOutputStream.
+        static final int STREAM_BUF_SIZE = 1 << 16;
+
         final int verbose = props.getInteger(Utils.DEBUG_VERBOSE);
 
         {
@@ -212,6 +215,24 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
             }
         }
 
+        /**
+         * Transfers exactly {@code size} bytes from {@code src} to {@code dst},
+         * reusing a single shared buffer.  Throws {@link java.io.EOFException}
+         * if the source stream ends prematurely.
+         */
+        private void transferBytes(InputStream src, OutputStream dst, long size)
+                throws IOException {
+            byte[] buf = new byte[STREAM_BUF_SIZE];
+            long remaining = size;
+            while (remaining > 0) {
+                int nr = (int) Math.min(buf.length, remaining);
+                nr = src.read(buf, 0, nr);
+                if (nr < 0)  throw new java.io.EOFException();
+                dst.write(buf, 0, nr);
+                remaining -= nr;
+            }
+        }
+
         private void unpackSegment(InputStream in, JarOutputStream out) throws IOException {
             props.setProperty(net.pack200.Pack200.Unpacker.PROGRESS,"0");
             // Process the output directory or jar output.
@@ -238,15 +259,7 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
                     // so buffer once through crcOut to compute both.
                     crc.reset();
                     bufOut.reset();
-                    byte[] buf = new byte[1 << 16];
-                    long remaining = size;
-                    while (remaining > 0) {
-                        int nr = (int) Math.min(buf.length, remaining);
-                        nr = data.read(buf, 0, nr);
-                        if (nr < 0)  throw new java.io.EOFException();
-                        crcOut.write(buf, 0, nr);
-                        remaining -= nr;
-                    }
+                    transferBytes(data, crcOut, size);
                     if (verbose > 0)
                         Utils.log.info("stored size="+bufOut.size()+" and crc="+crc.getValue());
                     je.setMethod(JarEntry.STORED);
@@ -258,15 +271,7 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
                     // DEFLATED entry: stream bytes directly — no intermediate buffer needed.
                     je.setMethod(JarEntry.DEFLATED);
                     out.putNextEntry(je);
-                    byte[] buf = new byte[1 << 16];
-                    long remaining = size;
-                    while (remaining > 0) {
-                        int nr = (int) Math.min(buf.length, remaining);
-                        nr = data.read(buf, 0, nr);
-                        if (nr < 0)  throw new java.io.EOFException();
-                        out.write(buf, 0, nr);
-                        remaining -= nr;
-                    }
+                    transferBytes(data, out, size);
                 }
                 out.closeEntry();
                 if (verbose > 0)

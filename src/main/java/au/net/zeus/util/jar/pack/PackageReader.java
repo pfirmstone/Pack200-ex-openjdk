@@ -995,7 +995,7 @@ class PackageReader extends BandStructure {
                 file.options |= file_options.getInt();
             if (verbose > 1)
                 Utils.log.fine("Reading "+size+" bytes of "+name.stringValue());
-            if (resourceFileConsumer != null && !file.isClassStub()) {
+            if (!file.isClassStub() && resourceFileConsumer != null) {
                 // Stream the file bytes directly to the consumer without
                 // buffering them inside Package.File, saving a heap copy.
                 resourceFileConsumer.consume(file, file_bits.getInputStream(), size);
