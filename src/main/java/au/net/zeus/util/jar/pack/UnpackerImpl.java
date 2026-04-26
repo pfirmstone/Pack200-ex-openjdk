@@ -286,7 +286,7 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
             // Write class-stub entries (resource files were already written above).
             Set<Package.Class> classesToWrite = new HashSet<>(pkg.getClasses());
             for (Package.File file : pkg.getFiles()) {
-                if (!file.isClassStub()) continue;  // already streamed by consumer
+                if (!file.isClassStub()) continue;  // Already streamed by consumer
 
                 String name = file.nameString;
                 JarEntry je = new JarEntry(Utils.getJarEntryName(name));
