@@ -73,6 +73,7 @@
                       <manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
                       <manifestEntries>
                           <Main-Class>au.net.zeus.util.jar.pack.Driver</Main-Class>
+                          <Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
                       </manifestEntries>
                   </archive>
               </configuration>

@@ -55,7 +55,7 @@
         <mkdir dir="${jtreg.work.dir}"/>
         <java classname="com.sun.javatest.regtest.Main"
               fork="true"
-              failonerror="false">
+              failonerror="true">
             <classpath>
                 <fileset dir="${jtreg.home}/lib" includes="*.jar" erroronmissingdir="false"/>
             </classpath>

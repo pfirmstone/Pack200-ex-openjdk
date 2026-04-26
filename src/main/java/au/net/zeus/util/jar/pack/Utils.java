@@ -63,6 +63,13 @@ class Utils {
     static final String DEBUG_DISABLE_NATIVE = COM_PREFIX+"disable.native";
 
     /*
+     * Use the default working TimeZone instead of UTC.
+     * Note: This has installer unpacker implications.
+     * see: zip.cpp which uses gmtime vs. localtime.
+     */
+    static final String PACK_DEFAULT_TIMEZONE = COM_PREFIX+"default.timezone";
+
+    /*
      * Property indicating that the unpacker should
      * ignore the transmitted PACK_MODIFICATION_TIME,
      * replacing it by the given value. The value can
