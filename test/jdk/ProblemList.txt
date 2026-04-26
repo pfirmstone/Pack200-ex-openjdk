@@ -115,6 +115,7 @@
 # core_tools
 
 tools/pack200/CommandLineTests.java                             8059906 generic-all
+tools/pack200/Java17Tests.java                                  generic-all
 
 ############################################################################
 
