@@ -62,6 +62,31 @@ class PackageReader extends BandStructure {
     LimitedBuffer in;
     Package.Version packageVersion;
 
+    /**
+     * Callback invoked for each non-class-stub resource file encountered
+     * during {@link #readFiles()}.  When a consumer is set the file's raw
+     * bytes are <em>not</em> buffered inside {@link Package.File}; instead
+     * the consumer must drain exactly {@code size} bytes from {@code data}
+     * before returning.  Class-stub entries (which carry no file-bits
+     * payload) are never passed to this consumer.
+     */
+    @FunctionalInterface
+    interface ResourceFileConsumer {
+        void consume(Package.File file, InputStream data, long size) throws IOException;
+    }
+
+    /** Optional consumer set by the caller before {@link #read()} is invoked. */
+    private ResourceFileConsumer resourceFileConsumer;
+
+    /**
+     * Registers a {@link ResourceFileConsumer} that will receive each
+     * non-class-stub file's byte stream in-place during {@link #readFiles()}.
+     * Must be called before {@link #read()}.
+     */
+    void setResourceFileConsumer(ResourceFileConsumer consumer) {
+        this.resourceFileConsumer = consumer;
+    }
+
     PackageReader(Package pkg, InputStream in) throws IOException {
         this.pkg = pkg;
         this.in = new LimitedBuffer(in);
@@ -970,14 +995,20 @@ class PackageReader extends BandStructure {
                 file.options |= file_options.getInt();
             if (verbose > 1)
                 Utils.log.fine("Reading "+size+" bytes of "+name.stringValue());
-            long toRead = size;
-            while (toRead > 0) {
-                int nr = buf.length;
-                if (nr > toRead)  nr = (int) toRead;
-                nr = file_bits.getInputStream().read(buf, 0, nr);
-                if (nr < 0)  throw new EOFException();
-                file.addBytes(buf, 0, nr);
-                toRead -= nr;
+            if (resourceFileConsumer != null && !file.isClassStub()) {
+                // Stream the file bytes directly to the consumer without
+                // buffering them inside Package.File, saving a heap copy.
+                resourceFileConsumer.consume(file, file_bits.getInputStream(), size);
+            } else {
+                long toRead = size;
+                while (toRead > 0) {
+                    int nr = buf.length;
+                    if (nr > toRead)  nr = (int) toRead;
+                    nr = file_bits.getInputStream().read(buf, 0, nr);
+                    if (nr < 0)  throw new EOFException();
+                    file.addBytes(buf, 0, nr);
+                    toRead -= nr;
+                }
             }
             pkg.addFile(file);
             if (file.isClassStub()) {
