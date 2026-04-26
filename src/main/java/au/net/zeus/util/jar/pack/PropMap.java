@@ -88,11 +88,6 @@ final class PropMap implements SortedMap<String, String>  {
     static {
         Properties props = new Properties();
 
-        // Allow implementation selected via -Dpack.disable.native=true
-        String propValue = getPropertyValue(Utils.DEBUG_DISABLE_NATIVE, "false");
-        props.put(Utils.DEBUG_DISABLE_NATIVE,
-                  String.valueOf(Boolean.parseBoolean(propValue)));
-
         // Set the DEBUG_VERBOSE from system
         int verbose = 0;
         try {

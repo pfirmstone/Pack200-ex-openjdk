@@ -100,8 +100,6 @@ public class Pack200Props {
         log.info("start");
         Map<String, String> expectedDefaults = new HashMap<>();
         Packer p = Pack200.newPacker();
-        expectedDefaults.put("au.net.zeus.util.jar.pack.disable.native",
-                p.FALSE);
         expectedDefaults.put("au.net.zeus.util.jar.pack.verbose", "0");
         expectedDefaults.put(p.CLASS_ATTRIBUTE_PFX + "CompilationID", "RUH");
         expectedDefaults.put(p.CLASS_ATTRIBUTE_PFX + "SourceID", "RUH");

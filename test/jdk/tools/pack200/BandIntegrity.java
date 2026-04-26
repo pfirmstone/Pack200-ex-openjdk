@@ -46,8 +46,7 @@ public class BandIntegrity {
                 "-C", Utils.TEST_CLS_DIR.getAbsolutePath(),
                 ".");
         List<String> scratch = new ArrayList<>();
-        // band debugging works only with java unpacker
-        scratch.add("au.net.zeus.util.jar.pack.disable.native=true");
+        // band debugging works with the java unpacker (always used)
         scratch.add("au.net.zeus.util.jar.pack.debug.bands=true");
         // while at it, might as well exercise this functionality
         scratch.add("au.net.zeus.util.jar.pack.dump.bands=true");

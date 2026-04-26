@@ -88,10 +88,6 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
         return props;
     }
 
-    // Back-pointer to NativeUnpacker, when active.
-    volatile Object _nunp;
-
-
     @Override
     public String toString() {
         return Utils.getVersionString();
@@ -132,24 +128,12 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
                 if (verbose > 0)
                     Utils.log.info("Copying unpacked JAR file...");
                 Utils.copyJarFile(new JarInputStream(in0), out);
-            } else if (props.getBoolean(Utils.DEBUG_DISABLE_NATIVE)) {
-                (new DoUnpack()).run(in0, out);
-                in0.close();
-                Utils.markJarFile(out);
             } else {
-                try {
-                    NativeUnpack nu = new NativeUnpack(this);
-                    nu.thisEscape();
-                    nu.run(in0, out);
-                } catch (UnsatisfiedLinkError | NoClassDefFoundError ex) {
-                    // failover to java implementation
-                    (new DoUnpack()).run(in0, out);
-                }
+                (new DoUnpack()).run(in0, out);
                 in0.close();
                 Utils.markJarFile(out);
             }
         } finally {
-            _nunp = null;
             Utils.currentInstance.set(null);
             if (tz != null) TimeZone.setDefault(tz);
         }
@@ -172,7 +156,6 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
             throw new NullPointerException("null output");
         }
         // Use the stream-based implementation.
-        // %%% Reconsider if native unpacker learns to memory-map the file.
         try (FileInputStream instr = new FileInputStream(in)) {
             unpack(instr, out);
         }
@@ -182,6 +165,9 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
     }
 
     private class DoUnpack {
+        // Buffer size used when streaming file bytes to the JarOutputStream.
+        static final int STREAM_BUF_SIZE = 1 << 16;
+
         final int verbose = props.getInteger(Utils.DEBUG_VERBOSE);
 
         {
@@ -229,18 +215,79 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
             }
         }
 
+        /**
+         * Transfers exactly {@code size} bytes from {@code src} to {@code dst},
+         * reusing a single shared buffer.  Throws {@link java.io.EOFException}
+         * if the source stream ends prematurely.
+         */
+        private void transferBytes(InputStream src, OutputStream dst, long size)
+                throws IOException {
+            byte[] buf = new byte[STREAM_BUF_SIZE];
+            long remaining = size;
+            while (remaining > 0) {
+                int nr = (int) Math.min(buf.length, remaining);
+                nr = src.read(buf, 0, nr);
+                if (nr < 0)  throw new java.io.EOFException();
+                dst.write(buf, 0, nr);
+                remaining -= nr;
+            }
+        }
+
         private void unpackSegment(InputStream in, JarOutputStream out) throws IOException {
             props.setProperty(net.pack200.Pack200.Unpacker.PROGRESS,"0");
             // Process the output directory or jar output.
-            new PackageReader(pkg, in).read();
+            // Resource files (non-class-stub entries) are written directly to
+            // the JarOutputStream via the consumer below, avoiding a full heap
+            // copy into Package.File.  Class-stub entries still go through the
+            // normal reconstructClass/ClassWriter path after read() returns.
+            PackageReader reader = new PackageReader(pkg, in);
+            reader.setResourceFileConsumer((file, data, size) -> {
+                String name = file.nameString;
+                JarEntry je = new JarEntry(Utils.getJarEntryName(name));
+                boolean deflate = (keepDeflateHint)
+                        ? (((file.options & Constants.FO_DEFLATE_HINT) != 0) ||
+                          ((pkg.default_options & Constants.AO_DEFLATE_HINT) != 0))
+                        : deflateHint;
+                boolean needCRC = !deflate;
+                if (keepModtime) {
+                    je.setTime((long)file.modtime * 1000);
+                } else {
+                    je.setTime((long)modtime * 1000);
+                }
+                if (needCRC) {
+                    // STORED entry: must supply CRC and size before putNextEntry,
+                    // so buffer once through crcOut to compute both.
+                    crc.reset();
+                    bufOut.reset();
+                    transferBytes(data, crcOut, size);
+                    if (verbose > 0)
+                        Utils.log.info("stored size="+bufOut.size()+" and crc="+crc.getValue());
+                    je.setMethod(JarEntry.STORED);
+                    je.setSize(bufOut.size());
+                    je.setCrc(crc.getValue());
+                    out.putNextEntry(je);
+                    bufOut.writeTo(out);
+                } else {
+                    // DEFLATED entry: stream bytes directly — no intermediate buffer needed.
+                    je.setMethod(JarEntry.DEFLATED);
+                    out.putNextEntry(je);
+                    transferBytes(data, out, size);
+                }
+                out.closeEntry();
+                if (verbose > 0)
+                    Utils.log.info("Writing "+Utils.zeString((ZipEntry)je));
+            });
+            reader.read();
 
             if (props.getBoolean("unpack.strip.debug"))    pkg.stripAttributeKind("Debug");
             if (props.getBoolean("unpack.strip.compile"))  pkg.stripAttributeKind("Compile");
             props.setProperty(net.pack200.Pack200.Unpacker.PROGRESS,"50");
             pkg.ensureAllClassFiles();
-            // Now write out the files.
+            // Write class-stub entries (resource files were already written above).
             Set<Package.Class> classesToWrite = new HashSet<>(pkg.getClasses());
             for (Package.File file : pkg.getFiles()) {
+                if (!file.isClassStub()) continue;  // Already streamed by consumer
+
                 String name = file.nameString;
                 JarEntry je = new JarEntry(Utils.getJarEntryName(name));
                 boolean deflate;
@@ -254,15 +301,10 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
 
                 if (needCRC)  crc.reset();
                 bufOut.reset();
-                if (file.isClassStub()) {
-                    Package.Class cls = file.getStubClass();
-                    assert(cls != null);
-                    new ClassWriter(cls, needCRC ? crcOut : bufOut).write();
-                    classesToWrite.remove(cls);  // for an error check
-                } else {
-                    // collect data & maybe CRC
-                    file.writeTo(needCRC ? crcOut : bufOut);
-                }
+                Package.Class cls = file.getStubClass();
+                assert(cls != null);
+                new ClassWriter(cls, needCRC ? crcOut : bufOut).write();
+                classesToWrite.remove(cls);  // for an error check
                 je.setMethod(deflate ? JarEntry.DEFLATED : JarEntry.STORED);
                 if (needCRC) {
                     if (verbose > 0)
@@ -273,8 +315,6 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
                     je.setCrc(crc.getValue());
                 }
                 if (keepModtime) {
-                    je.setTime(file.modtime);
-                    // Convert back to milliseconds
                     je.setTime((long)file.modtime * 1000);
                 } else {
                     je.setTime((long)modtime * 1000);

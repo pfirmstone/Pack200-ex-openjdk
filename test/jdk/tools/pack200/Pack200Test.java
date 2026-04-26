@@ -26,7 +26,6 @@
   * @bug 6521334 6712743 8007902 8151901
   * @requires (sun.arch.data.model == "64" & os.maxMemory >= 4g)
   * @summary test general packer/unpacker functionality
-  *          using native and java unpackers
   * @modules jdk.management
   *          jdk.zipfs
   * @compile -XDignore.symbol.file Utils.java Pack200Test.java
@@ -75,7 +74,6 @@ public class Pack200Test {
     private static void doPackUnpack() throws IOException {
         for (File in : jarList) {
             JarOutputStream javaUnpackerStream = null;
-            JarOutputStream nativeUnpackerStream = null;
             JarFile jarFile = null;
             try {
                 jarFile = new JarFile(in);
@@ -102,25 +100,10 @@ public class Pack200Test {
                 leakCheck();
                 // Ok we have unpacked the file, lets test it.
                 Utils.doCompareVerify(in.getAbsoluteFile(), javaUnpackedJar);
-
-                System.out.println("  Unpacking using native unpacker");
-                // Write out to current directory
-                File nativeUnpackedJar = new File("native-" + in.getName());
-                nativeUnpackerStream = new JarOutputStream(
-                        new FileOutputStream(nativeUnpackedJar));
-                Utils.unpackn(packFile, nativeUnpackerStream);
-                nativeUnpackerStream.close();
-                System.out.println("  Testing...native unpacker");
-                leakCheck();
-                // the unpackers (native and java) should produce identical bits
-                // so we use use bit wise compare, the verification compare is
-                // very expensive wrt. time.
-                Utils.doCompareBitWise(javaUnpackedJar, nativeUnpackedJar);
                 System.out.println("Done.");
             } catch (Exception e) {
                 throw new RuntimeException(e);
             } finally {
-                Utils.close(nativeUnpackerStream);
                 Utils.close(javaUnpackerStream);
                 Utils.close((Closeable) jarFile);
             }

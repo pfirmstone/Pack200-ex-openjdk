@@ -57,12 +57,6 @@ class Utils {
     static final String DEBUG_VERBOSE = COM_PREFIX+"verbose";
 
     /*
-     * Disables use of native code, prefers the Java-coded implementation.
-     * (installer only)
-     */
-    static final String DEBUG_DISABLE_NATIVE = COM_PREFIX+"disable.native";
-
-    /*
      * Use the default working TimeZone instead of UTC.
      * Note: This has installer unpacker implications.
      * see: zip.cpp which uses gmtime vs. localtime.
@@ -131,7 +125,7 @@ class Utils {
 
     // Keep a TLS point to the global data and environment.
     // This makes it simpler to supply environmental options
-    // to the engine code, especially the native code.
+    // to the engine code.
     static final ThreadLocal<TLGlobals> currentInstance = new ThreadLocal<>();
 
     // convenience method to access the TL globals
