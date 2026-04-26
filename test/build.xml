@@ -50,6 +50,17 @@
     <!-- Test suite directory -->
     <property name="test.dir" location="${basedir}/test/jdk"/>
 
+    <!--
+      Problem list: tests listed here are excluded from the jtreg run.
+      Override by setting the JTREG_PROBLEM_LIST environment variable or the
+      problem.list Ant property to point at a different file.
+      Default: test/jdk/ProblemList.txt
+    -->
+    <condition property="problem.list" value="${env.JTREG_PROBLEM_LIST}">
+        <isset property="env.JTREG_PROBLEM_LIST"/>
+    </condition>
+    <property name="problem.list" location="${test.dir}/ProblemList.txt"/>
+
     <target name="test" description="Run jtreg tests">
         <mkdir dir="${jtreg.report.dir}"/>
         <mkdir dir="${jtreg.work.dir}"/>
@@ -63,6 +74,7 @@
             <arg value="-r:${jtreg.report.dir}"/>
             <arg value="-workDir:${jtreg.work.dir}"/>
             <arg value="-jdk:${jdk.home}"/>
+            <arg value="-exclude:${problem.list}"/>
             <arg value="-cpa:${pack.jar}"/>
             <arg value="-vmoption:-Dpack.home=${pack.home}"/>
             <arg value="-vmoption:-Dpack.version=${version}"/>
