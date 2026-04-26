@@ -33,7 +33,7 @@ import java.util.zip.ZipEntry;
 /*
  * @test
  * @bug 8029646
- * @summary tests that native unpacker produces the same result as Java one
+ * @summary tests that pack200/unpack200 tools produce correct results
  * @compile -XDignore.symbol.file Utils.java PackTestZip64.java
  * @run main PackTestZip64
  * @author kizune

@@ -88,10 +88,6 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
         return props;
     }
 
-    // Back-pointer to NativeUnpacker, when active.
-    volatile Object _nunp;
-
-
     @Override
     public String toString() {
         return Utils.getVersionString();
@@ -132,24 +128,12 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
                 if (verbose > 0)
                     Utils.log.info("Copying unpacked JAR file...");
                 Utils.copyJarFile(new JarInputStream(in0), out);
-            } else if (props.getBoolean(Utils.DEBUG_DISABLE_NATIVE)) {
-                (new DoUnpack()).run(in0, out);
-                in0.close();
-                Utils.markJarFile(out);
             } else {
-                try {
-                    NativeUnpack nu = new NativeUnpack(this);
-                    nu.thisEscape();
-                    nu.run(in0, out);
-                } catch (UnsatisfiedLinkError | NoClassDefFoundError ex) {
-                    // failover to java implementation
-                    (new DoUnpack()).run(in0, out);
-                }
+                (new DoUnpack()).run(in0, out);
                 in0.close();
                 Utils.markJarFile(out);
             }
         } finally {
-            _nunp = null;
             Utils.currentInstance.set(null);
             if (tz != null) TimeZone.setDefault(tz);
         }
@@ -172,7 +156,6 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
             throw new NullPointerException("null output");
         }
         // Use the stream-based implementation.
-        // %%% Reconsider if native unpacker learns to memory-map the file.
         try (FileInputStream instr = new FileInputStream(in)) {
             unpack(instr, out);
         }
