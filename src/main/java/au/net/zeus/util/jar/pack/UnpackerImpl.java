@@ -198,8 +198,14 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
 
         // Checksum apparatus.
         final CRC32 crc = new CRC32();
-        final ByteArrayOutputStream bufOut = new ByteArrayOutputStream();
+        // Pre-sized to a typical class file to minimise internal resize-and-copy cycles.
+        // Used only for STORED entries that require CRC and size before putNextEntry.
+        final ByteArrayOutputStream bufOut = new ByteArrayOutputStream(4096);
         final OutputStream crcOut = new CheckedOutputStream(bufOut, crc);
+
+        // Reusable transfer buffer — allocated once per DoUnpack and shared across
+        // all transferBytes calls to avoid repeated 64 KB allocations.
+        final byte[] transferBuf = new byte[STREAM_BUF_SIZE];
 
         public void run(BufferedInputStream in, JarOutputStream out) throws IOException {
             if (verbose > 0) {
@@ -217,18 +223,17 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
 
         /**
          * Transfers exactly {@code size} bytes from {@code src} to {@code dst},
-         * reusing a single shared buffer.  Throws {@link java.io.EOFException}
+         * reusing the shared {@link #transferBuf}.  Throws {@link java.io.EOFException}
          * if the source stream ends prematurely.
          */
         private void transferBytes(InputStream src, OutputStream dst, long size)
                 throws IOException {
-            byte[] buf = new byte[STREAM_BUF_SIZE];
             long remaining = size;
             while (remaining > 0) {
-                int nr = (int) Math.min(buf.length, remaining);
-                nr = src.read(buf, 0, nr);
+                int nr = (int) Math.min(transferBuf.length, remaining);
+                nr = src.read(transferBuf, 0, nr);
                 if (nr < 0)  throw new java.io.EOFException();
-                dst.write(buf, 0, nr);
+                dst.write(transferBuf, 0, nr);
                 remaining -= nr;
             }
         }
@@ -299,28 +304,34 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
 
                 boolean needCRC = !deflate;  // STORE mode requires CRC
 
-                if (needCRC)  crc.reset();
-                bufOut.reset();
                 Package.Class cls = file.getStubClass();
                 assert(cls != null);
-                new ClassWriter(cls, needCRC ? crcOut : bufOut).write();
-                classesToWrite.remove(cls);  // for an error check
-                je.setMethod(deflate ? JarEntry.DEFLATED : JarEntry.STORED);
-                if (needCRC) {
-                    if (verbose > 0)
-                        Utils.log.info("stored size="+bufOut.size()+" and crc="+crc.getValue());
-
-                    je.setMethod(JarEntry.STORED);
-                    je.setSize(bufOut.size());
-                    je.setCrc(crc.getValue());
-                }
                 if (keepModtime) {
                     je.setTime((long)file.modtime * 1000);
                 } else {
                     je.setTime((long)modtime * 1000);
                 }
-                out.putNextEntry(je);
-                bufOut.writeTo(out);
+                if (needCRC) {
+                    // STORED entry: must supply CRC and size before putNextEntry,
+                    // so buffer once through crcOut to compute both.
+                    crc.reset();
+                    bufOut.reset();
+                    new ClassWriter(cls, crcOut).write();
+                    classesToWrite.remove(cls);  // for an error check
+                    if (verbose > 0)
+                        Utils.log.info("stored size="+bufOut.size()+" and crc="+crc.getValue());
+                    je.setMethod(JarEntry.STORED);
+                    je.setSize(bufOut.size());
+                    je.setCrc(crc.getValue());
+                    out.putNextEntry(je);
+                    bufOut.writeTo(out);
+                } else {
+                    // DEFLATED entry: stream class bytes directly — no bufOut copy needed.
+                    classesToWrite.remove(cls);  // for an error check
+                    je.setMethod(JarEntry.DEFLATED);
+                    out.putNextEntry(je);
+                    new ClassWriter(cls, out).write();
+                }
                 out.closeEntry();
                 if (verbose > 0)
                     Utils.log.info("Writing "+Utils.zeString((ZipEntry)je));
