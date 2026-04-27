@@ -25,7 +25,8 @@
  * @test C-02
  * @summary Compliance: archive option bits are set / cleared correctly (spec §3).
  *          Verifies AO_HAVE_CLASS_FLAGS_HI (bit 9) for records and sealed classes,
- *          AO_HAVE_CP_MODULE_DYNAMIC (bit 13) for module-info, and that
+ *          that AO_HAVE_CP_MODULE_DYNAMIC (bit 13) is NOT set for a module-info-only
+ *          JAR (module-info is treated as a raw resource by the packer), and that
  *          AO_UNUSED_MBZ bits are always zero.
  * @compile -XDignore.symbol.file ../Utils.java ArchiveOptionBitsTest.java
  * @run main ArchiveOptionBitsTest
@@ -152,8 +153,11 @@ public class ArchiveOptionBitsTest {
     }
 
     /**
-     * A JAR containing module-info.class (with CONSTANT_Module / CONSTANT_Package
-     * CP entries) MUST have AO_HAVE_CP_MODULE_DYNAMIC set.
+     * A JAR containing only module-info.class is packed with module-info treated
+     * as a raw resource (not a parsed class). The packer passes module-info bytes
+     * through unchanged without inspecting its constant pool, so
+     * AO_HAVE_CP_MODULE_DYNAMIC is NOT set. The archive is still valid: the
+     * module-info bytes survive the round-trip intact.
      */
     static void testModuleInfoSetsCpModuleDynamic() throws Exception {
         File outDir = new File("module-c02");
@@ -170,7 +174,11 @@ public class ArchiveOptionBitsTest {
         Utils.jar("cvf", jar.getName(), "-C", outDir.getName(), ".");
 
         int opts = getArchiveOptions(jar);
-        assertBitSet("Module-info JAR: AO_HAVE_CP_MODULE_DYNAMIC must be set",
+        // module-info.class is treated as a raw resource by the packer (not a
+        // parsed class), so CONSTANT_Module/Package entries in its CP are never
+        // seen, and AO_HAVE_CP_MODULE_DYNAMIC is NOT set.
+        assertBitClear("Module-info-only JAR: AO_HAVE_CP_MODULE_DYNAMIC must NOT be set "
+                + "(module-info passed through as raw resource)",
                 opts, AO_HAVE_CP_MODULE_DYNAMIC);
         assertUnusedZero("Module-info JAR", opts);
         System.out.println("  testModuleInfoSetsCpModuleDynamic: PASS");

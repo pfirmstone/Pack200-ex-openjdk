@@ -122,6 +122,7 @@ public class BandPhaseIntegrityTest {
         config.add("au.net.zeus.util.jar.pack.debug.bands=true");
         config.add("au.net.zeus.util.jar.pack.dump.bands=true");
         File configFile = new File("band-debug.conf");
+        configFile.delete();  // overwrite if left from a previous sub-test
         Utils.createFile(configFile, config);
 
         // disableNative=true forces the Java unpacker (which respects debug.bands)

@@ -1574,7 +1574,6 @@ class BandStructure {
     CPRefBand class_InnerClasses_name_RUN = class_attr_bands.newCPRefBand("class_InnerClasses_name_RUN", UNSIGNED5, CONSTANT_Utf8, NULL_IS_OK);
     IntBand class_ClassFile_version_minor_H = class_attr_bands.newIntBand("class_ClassFile_version_minor_H");
     IntBand class_ClassFile_version_major_H = class_attr_bands.newIntBand("class_ClassFile_version_major_H");
-    MultiBand class_type_metadata_bands = class_attr_bands.newMultiBand("(class_type_metadata_bands)", UNSIGNED5);
 
     // bands for predefined NestHost attribute (Java 11+, index 25)
     CPRefBand class_NestHost_RC = class_attr_bands.newCPRefBand("class_NestHost_RC", CONSTANT_Class);
@@ -1582,6 +1581,10 @@ class BandStructure {
     // bands for predefined NestMembers attribute (Java 11+, index 26)
     IntBand   class_NestMembers_N = class_attr_bands.newIntBand("class_NestMembers_N");
     CPRefBand class_NestMembers_RC = class_attr_bands.newCPRefBand("class_NestMembers_RC", CONSTANT_Class);
+
+    // type-annotation bands for class context (RVTA=27, RITA=28) — declared here
+    // so that the band-write order matches the attribute-index order 25 < 26 < 27 < 28.
+    MultiBand class_type_metadata_bands = class_attr_bands.newMultiBand("(class_type_metadata_bands)", UNSIGNED5);
 
     // bands for predefined Module attribute (Java 9+, index 29)
     // Layout: "RJHHRUNH NH[RJHHRUNH] NH[RXHHNH[RJH]] NH[RXHHNH[RJH]] NH[RCH] NH[RCHNH[RCH]]"
@@ -2045,9 +2048,12 @@ class BandStructure {
             // Clear the bits set by predefineAttribute for the new higher indices.
             attrDefSeen[ATTR_CONTEXT_CLASS] &= ~((1L << CLASS_ATTR_Record)
                                                  | (1L << CLASS_ATTR_PermittedSubclasses));
-        } else if (isReader) {
-            // These bands are only activated when AO_HAVE_CLASS_FLAGS_HI is set.
-            // Mark them as unused so phase assertions don't fire.
+        } else {
+            // AO_HAVE_CLASS_FLAGS_HI is not set: the Record and PermittedSubclasses
+            // bands are inactive.  Mark them as unused so phase assertions don't fire
+            // and so that the band-sequence debug check stays in sync with the writer
+            // (which also needs to freeze these bands to exclude them from the sequence
+            // list via assertReadyToWriteTo's FROZEN_PHASE guard).
             class_Record_N.doneWithUnusedBand();
             class_Record_name_RU.doneWithUnusedBand();
             class_Record_type_RS.doneWithUnusedBand();
@@ -2772,6 +2778,10 @@ class BandStructure {
         }
         String name = b.name;
         if (optDebugBands && !name.startsWith("(")) {
+            // Bands that were frozen via doneWithUnusedBand() write nothing and
+            // will not be read back; exclude them from the sequence list so that
+            // the reader's assertReadyToReadFrom stays in sync.
+            if (b.phase() == FROZEN_PHASE) return true;
             if (bandSequenceList == null)
                 bandSequenceList = new LinkedList<>();
             // Verify synchronization between reader & writer:

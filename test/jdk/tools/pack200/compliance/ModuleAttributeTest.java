@@ -106,14 +106,18 @@ public class ModuleAttributeTest {
         File outDir = new File("module-min");
         outDir.mkdirs();
 
+        // Place the module-info.java in its own source directory to avoid
+        // colliding with the module-info.java created by testFullModuleAttribute.
+        File srcDir = new File("module-min-src");
+        srcDir.mkdirs();
         List<String> modSrc = new ArrayList<>();
         modSrc.add("module com.example.m06min {");
         modSrc.add("    requires java.base;");
         modSrc.add("}");
-        File modFile = new File("module-info.java");
+        File modFile = new File(srcDir, "module-info.java");
         Utils.createFile(modFile, modSrc);
 
-        Utils.compiler("--release", "9", "-d", outDir.getName(), modFile.getName());
+        Utils.compiler("--release", "9", "-d", outDir.getName(), modFile.getAbsolutePath());
 
         File jar = new File("module-min.jar");
         Utils.jar("cvf", jar.getName(), "-C", outDir.getName(), ".");

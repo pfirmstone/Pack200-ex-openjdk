@@ -85,6 +85,8 @@ import com.sun.tools.classfile.ModuleTarget_attribute;
 import com.sun.tools.classfile.ModulePackages_attribute;
 import com.sun.tools.classfile.NestHost_attribute;
 import com.sun.tools.classfile.NestMembers_attribute;
+import com.sun.tools.classfile.PermittedSubclasses_attribute;
+import com.sun.tools.classfile.Record_attribute;
 import com.sun.tools.classfile.Opcode;
 import com.sun.tools.classfile.RuntimeInvisibleAnnotations_attribute;
 import com.sun.tools.classfile.RuntimeInvisibleParameterAnnotations_attribute;
@@ -1585,6 +1587,37 @@ class AttributeVisitor implements Attribute.Visitor<Element, Element> {
             Element n = new Element("Item");
             n.setAttr("class", x.getCpString(idx));
             ee.add(n);
+        }
+        ee.trimToSize();
+        p.add(ee);
+        return null;
+    }
+
+    @Override
+    public Element visitPermittedSubclasses(PermittedSubclasses_attribute attr, Element p) {
+        Element ee = new Element(x.getCpString(attr.attribute_name_index));
+        for (int idx : attr.subtypes) {
+            Element n = new Element("Item");
+            n.setAttr("class", x.getCpString(idx));
+            ee.add(n);
+        }
+        ee.trimToSize();
+        p.add(ee);
+        return null;
+    }
+
+    @Override
+    public Element visitRecord(Record_attribute attr, Element p) {
+        Element ee = new Element(x.getCpString(attr.attribute_name_index));
+        try {
+            for (Record_attribute.ComponentInfo ci : attr.component_info_arr) {
+                Element comp = new Element("Component");
+                comp.setAttr("name", x.getCpString(ci.name_index));
+                comp.setAttr("descriptor", ci.descriptor.getValue(cf.constant_pool));
+                ee.add(comp);
+            }
+        } catch (Exception e) {
+            // ignore parse errors — treat as unknown
         }
         ee.trimToSize();
         p.add(ee);
