@@ -13,10 +13,10 @@ magic `0xCAFED00D`). Implementations that do not recognise the new package versi
 behaviour.
 
 The implementation JAR is a **Multi-Release JAR** (MRJAR) as defined by JEP 238. The
-base class files target Java 8. `META-INF/versions/9/` adds a JPMS module descriptor and
-`META-INF/versions/17/` replaces the deprecated `AccessController.doPrivileged()` API
-with direct calls, so that the implementation runs cleanly on each supported JVM without
-deprecation warnings.
+base class files target Java 8. `META-INF/versions/9/` adds a JPMS module descriptor.
+`META-INF/versions/17/` carries Java-17-compiled class files; `AccessController.doPrivileged()`
+is retained in those files and will be removed only when a future JEP formally
+removes the API.
 
 ---
 
@@ -439,9 +439,9 @@ META-INF/
     9/
       module-info.class           JPMS module descriptor (--release 9)
     17/
-      net/pack200/Pack200.class           No AccessController (--release 17)
+      net/pack200/Pack200.class           Java-17-compiled (AccessController retained)
       au/net/zeus/util/jar/pack/
-        PropMap.class                     No AccessController (--release 17)
+        PropMap.class                     Java-17-compiled (AccessController retained)
 ```
 
 ### 11.1 JPMS Module Descriptor (Java 9+)
@@ -464,14 +464,15 @@ The `provides` declarations enable callers that use `ServiceLoader` to obtain
 
 ### 11.2 Java 17+ Class Files
 
-The class files at `META-INF/versions/17/` replace uses of the deprecated-for-removal
-`java.security.AccessController.doPrivileged()` API that existed in the Java 8 base
-classes:
+The class files at `META-INF/versions/17/` are compiled with `--release 17`.
+`java.security.AccessController.doPrivileged()` is **retained** in these class files —
+the same way it appears in the Java 8 base classes — and will only be removed when a
+future JEP formally eliminates the API from the platform:
 
-| Class | Change |
+| Class | Status |
 |-------|--------|
-| `net.pack200.Pack200` | `GetPropertyAction.privilegedGetProperty()` calls `System.getProperty()` directly; `newInstance(String prop)` uses `getDeclaredConstructor().newInstance()` |
-| `au.net.zeus.util.jar.pack.PropMap` | Static initializer loads `intrinsic.properties` without `AccessController`; `getPropertyValue()` calls `System.getProperty()` directly |
+| `net.pack200.Pack200` | `GetPropertyAction.privilegedGetProperty()` continues to use `AccessController.doPrivileged()` |
+| `au.net.zeus.util.jar.pack.PropMap` | Static initializer and `getPropertyValue()` continue to use `AccessController.doPrivileged()` |
 
 ### 11.3 Build
 
