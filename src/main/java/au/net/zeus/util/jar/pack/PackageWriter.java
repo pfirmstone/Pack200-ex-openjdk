@@ -34,6 +34,7 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -147,9 +148,15 @@ class PackageWriter extends BandStructure {
             packageVersion = JAVA6_PACKAGE_VERSION;
         } else if (highV.equals(JAVA7_MAX_CLASS_VERSION)) {
             packageVersion = JAVA7_PACKAGE_VERSION;
-        } else {
-            // Normal case.  Use the newest archive format, when available
+        } else if (highV.lessThan(JAVA9_MAX_CLASS_VERSION) && !pkg.cp.haveModuleDynamicTags()) {
+            // Java 8: no Module/Package CP entries and class version < 53
             packageVersion = JAVA8_PACKAGE_VERSION;
+        } else if (highV.lessThan(JAVA11_MAX_CLASS_VERSION)) {
+            // Java 9 or 10: class version 53 or 54, or Module/Package CP entries
+            packageVersion = JAVA9_PACKAGE_VERSION;
+        } else {
+            // Java 11+: class version 55+
+            packageVersion = JAVA11_PACKAGE_VERSION;
         }
 
         if (verbose > 0) {
@@ -269,6 +276,18 @@ class PackageWriter extends BandStructure {
                 archiveOptions |= AO_HAVE_FILE_SIZE_HI;
                 if (verbose > 0)
                    Utils.log.info("Note: Huge resource file "+file.getFileName()+" forces 64-bit sizing");
+                break;
+            }
+        }
+
+        // Decide if Record or PermittedSubclasses attributes are present.
+        // These use class flag indices >= 32 and require AO_HAVE_CLASS_FLAGS_HI.
+        Attribute.Layout permSubLayout =
+                Attribute.find(ATTR_CONTEXT_CLASS, "PermittedSubclasses", "NH[RCH]").layout();
+        for (Class cls : pkg.classes) {
+            if (cls.recordComponents != null
+                    || cls.getAttribute(permSubLayout) != null) {
+                archiveOptions |= AO_HAVE_CLASS_FLAGS_HI;
                 break;
             }
         }
@@ -1213,6 +1232,17 @@ class PackageWriter extends BandStructure {
         }
     }
 
+    void writeLocalRecordComponents(Attribute.Holder h) throws IOException {
+        Class cls = (Class) h;
+        List<Package.RecordComponent> comps = cls.recordComponents;
+        if (comps == null) comps = Collections.emptyList();
+        class_Record_N.putInt(comps.size());
+        for (Package.RecordComponent rc : comps) {
+            class_Record_name_RU.putRef(rc.name);
+            class_Record_type_RS.putRef(rc.type);
+        }
+    }
+
     void writeClassesAndByteCodes() throws IOException {
         Class[] classes = new Class[pkg.classes.size()];
         pkg.classes.toArray(classes);
@@ -1359,6 +1389,11 @@ class PackageWriter extends BandStructure {
                 if (def == attrInnerClassesEmpty) {
                     // Special logic to write this attr.
                     writeLocalInnerClasses((Class) h);
+                    continue;
+                }
+                if (def == attrRecordEmpty) {
+                    // Special logic to write Record component bands.
+                    writeLocalRecordComponents((Class) h);
                     continue;
                 }
                 // Empty attr; nothing more to write here.

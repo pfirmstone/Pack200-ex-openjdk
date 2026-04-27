@@ -35,9 +35,8 @@ import java.util.List;
 
 /*
  * This makes use of the optDebugBands to ensure the bands are read in the
- * same sequence as it was written. The caveat is that this works only with
- * the java unpacker, therefore it will work only with --repack such that
- * the java packer and unpacker must be called in the same java instance.
+ * same sequence as it was written. It works with --repack such that
+ * the packer and unpacker are called in the same java instance.
  */
 public class BandIntegrity {
     public static void main(String... args) throws IOException {
@@ -46,7 +45,7 @@ public class BandIntegrity {
                 "-C", Utils.TEST_CLS_DIR.getAbsolutePath(),
                 ".");
         List<String> scratch = new ArrayList<>();
-        // band debugging works with the java unpacker (always used)
+        // band debugging works with the unpacker (always used)
         scratch.add("au.net.zeus.util.jar.pack.debug.bands=true");
         // while at it, might as well exercise this functionality
         scratch.add("au.net.zeus.util.jar.pack.dump.bands=true");
@@ -54,7 +53,7 @@ public class BandIntegrity {
         File configFile = new File("pack.conf");
         Utils.createFile(configFile, scratch);
         File outFile = new File("out.jar");
-        Utils.repack(testFile, outFile, true,
+        Utils.repack(testFile, outFile,
                 "-v", "--config-file=" + configFile.getName());
         Utils.cleanup();
     }

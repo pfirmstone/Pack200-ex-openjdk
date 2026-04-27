@@ -75,7 +75,7 @@ public class UnpackerMemoryTest {
                 fos = new FileOutputStream(jarOut);
                 jarOS = new JarOutputStream(fos);
                 System.out.println("Unpacking[" + i + "]" + packFile);
-                Utils.unpackn(packFile, jarOS);
+                Utils.unpack(packFile, jarOS);
             }  finally {
                 Utils.close(jarOS);
                 Utils.close(fos);

@@ -267,6 +267,8 @@ class PackageReader extends BandStructure {
     void checkArchiveVersion() throws IOException {
         Package.Version versionFound = null;
         for (Package.Version v : new Package.Version[] {
+                JAVA11_PACKAGE_VERSION,
+                JAVA9_PACKAGE_VERSION,
                 JAVA8_PACKAGE_VERSION,
                 JAVA7_PACKAGE_VERSION,
                 JAVA6_PACKAGE_VERSION,
@@ -278,8 +280,12 @@ class PackageReader extends BandStructure {
             }
         }
         if (versionFound == null) {
-            String expVer =   JAVA8_PACKAGE_VERSION.toString()
-                            + "OR"
+            String expVer = JAVA11_PACKAGE_VERSION.toString()
+                            + " OR "
+                            + JAVA9_PACKAGE_VERSION.toString()
+                            + " OR "
+                            + JAVA8_PACKAGE_VERSION.toString()
+                            + " OR "
                             + JAVA7_PACKAGE_VERSION.toString()
                             + " OR "
                             + JAVA6_PACKAGE_VERSION.toString()
@@ -324,7 +330,16 @@ class PackageReader extends BandStructure {
         int majver = archive_header_0.getInt();
         packageVersion = Package.Version.of(majver, minver);
         checkArchiveVersion();
-        this.initHighestClassVersion(JAVA7_MAX_CLASS_VERSION);
+        // Set the highest class version based on the archive's package version.
+        Package.Version maxClassVer;
+        if (packageVersion.greaterThan(JAVA9_PACKAGE_VERSION)) {
+            maxClassVer = JAVA17_MAX_CLASS_VERSION;
+        } else if (packageVersion.greaterThan(JAVA8_PACKAGE_VERSION)) {
+            maxClassVer = JAVA9_MAX_CLASS_VERSION;
+        } else {
+            maxClassVer = JAVA7_MAX_CLASS_VERSION;
+        }
+        this.initHighestClassVersion(maxClassVer);
 
         archiveOptions = archive_header_0.getInt();
         archive_header_0.doneDisbursing();
@@ -1170,6 +1185,17 @@ class PackageReader extends BandStructure {
         // full contents of the local constant pool yet.
     }
 
+    void readLocalRecordComponents(Class cls) throws IOException {
+        int nc = class_Record_N.getInt();
+        List<Package.RecordComponent> comps = new ArrayList<>(nc);
+        for (int i = 0; i < nc; i++) {
+            Utf8Entry      name = (Utf8Entry)      class_Record_name_RU.getRef();
+            SignatureEntry type = (SignatureEntry)  class_Record_type_RS.getRef();
+            comps.add(new Package.RecordComponent(name, type));
+        }
+        cls.recordComponents = new ArrayList<>(comps);
+    }
+
     static final int NO_FLAGS_YET = 0;  // placeholder for later flag read-in
 
     Class[] readClasses() throws IOException {
@@ -1284,6 +1310,11 @@ class PackageReader extends BandStructure {
             cpRefs.add(Package.getRefString("BootstrapMethods"));
             Collections.sort(bsms);
             cls.setBootstrapMethods(bsms);
+        }
+
+        // If this class has Record components, ensure "Record" is in the CP.
+        if (cls.recordComponents != null) {
+            cpRefs.add(Package.getRefString("Record"));
         }
 
         // Now that we know all our local class references,
@@ -1782,6 +1813,15 @@ class PackageReader extends BandStructure {
                     class_InnerClasses_outer_RCN.readFrom(in);
                     class_InnerClasses_name_RUN.expectLength(tupleCount);
                     class_InnerClasses_name_RUN.readFrom(in);
+                } else if (def == attrRecordEmpty) {
+                    // Special case for Record attribute: NH[RU RS] layout.
+                    class_Record_N.expectLength(totalCount);
+                    class_Record_N.readFrom(in);
+                    int compCount = class_Record_N.getIntTotal();
+                    class_Record_name_RU.expectLength(compCount);
+                    class_Record_name_RU.readFrom(in);
+                    class_Record_type_RS.expectLength(compCount);
+                    class_Record_type_RS.readFrom(in);
                 } else if (!optDebugBands && totalCount == 0) {
                     // Expect no elements at all.  Skip quickly. however if we
                     // are debugging bands, read all bands regardless
@@ -1842,6 +1882,11 @@ class PackageReader extends BandStructure {
                         readLocalInnerClasses((Class) h);
                         continue;
                     }
+                    if (def == attrRecordEmpty) {
+                        // Special logic to read Record component bands.
+                        readLocalRecordComponents((Class) h);
+                        continue;
+                    }
                     // Canonical empty attr works fine (e.g., Synthetic).
                     continue;
                 }
@@ -1886,6 +1931,12 @@ class PackageReader extends BandStructure {
             class_InnerClasses_F.doneDisbursing();
             class_InnerClasses_outer_RCN.doneDisbursing();
             class_InnerClasses_name_RUN.doneDisbursing();
+            // Record bands are only active when AO_HAVE_CLASS_FLAGS_HI is set.
+            if (testBit(archiveOptions, AO_HAVE_CLASS_FLAGS_HI)) {
+                class_Record_N.doneDisbursing();
+                class_Record_name_RU.doneDisbursing();
+                class_Record_type_RS.doneDisbursing();
+            }
         }
 
         MultiBand xxx_attr_bands = attrBands[ctype];

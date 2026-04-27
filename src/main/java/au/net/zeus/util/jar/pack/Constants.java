@@ -165,7 +165,7 @@ class Constants {
 
     // upper limit should point to the latest package version, for version info!.
     public static final Package.Version MAX_PACKAGE_VERSION =
-            JAVA7_PACKAGE_VERSION;
+            JAVA11_PACKAGE_VERSION;
 
     public static final int CONSTANT_POOL_INDEX_LIMIT  = 0x10000;
     public static final int CONSTANT_POOL_NARROW_LIMIT = 0x00100;
@@ -253,6 +253,15 @@ class Constants {
         METHOD_ATTR_MethodParameters = 26,           // JDK8
         X_ATTR_RuntimeVisibleTypeAnnotations = 27,   // JDK8
         X_ATTR_RuntimeInvisibleTypeAnnotations = 28, // JDK8
+        // Java 9+ class attributes (indices 25-31, standard range):
+        CLASS_ATTR_NestHost = 25,
+        CLASS_ATTR_NestMembers = 26,
+        CLASS_ATTR_Module = 29,
+        CLASS_ATTR_ModulePackages = 30,
+        CLASS_ATTR_ModuleMainClass = 31,
+        // Java 11+ class attributes (indices 32-33, require AO_HAVE_CLASS_FLAGS_HI):
+        CLASS_ATTR_Record = 32,
+        CLASS_ATTR_PermittedSubclasses = 33,
         CODE_ATTR_StackMapTable = 0,  // new in Java 6
         CODE_ATTR_LineNumberTable = 1,
         CODE_ATTR_LocalVariableTable = 2,
