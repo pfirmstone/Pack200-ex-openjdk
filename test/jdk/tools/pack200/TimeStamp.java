@@ -106,7 +106,7 @@ public class TimeStamp {
                 throw new RuntimeException("not implemented: " + tzname);
         }
         List<String> cmdsList = new ArrayList<>();
-        cmdsList.add(Utils.getUnpack200Cmd());
+        cmdsList.addAll(Utils.getUnpack200CmdList());
         cmdsList.add(packFile.getName());
         cmdsList.add(outFile.getName());
         Utils.runExec(cmdsList, env);

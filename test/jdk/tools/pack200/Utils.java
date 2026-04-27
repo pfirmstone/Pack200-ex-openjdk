@@ -543,11 +543,52 @@ class Utils {
     }
     
     static String getUnpack200Cmd() {
-        return getAjavaCmd("unpack200");
+        File nativeTool = new File(JavaHome, "bin" + FileSeparator
+                + "unpack200" + (IsWindows ? ".exe" : ""));
+        if (nativeTool.canExecute()) {
+            return nativeTool.getAbsolutePath();
+        }
+        // Fall back to Java implementation when native tool is unavailable (Java 14+)
+        return getJavaCmd() + " -jar " + getPackJar();
     }
-    
+
+    static List<String> getUnpack200CmdList() {
+        File nativeTool = new File(JavaHome, "bin" + FileSeparator
+                + "unpack200" + (IsWindows ? ".exe" : ""));
+        if (nativeTool.canExecute()) {
+            return Collections.singletonList(nativeTool.getAbsolutePath());
+        }
+        // Fall back to Java implementation when native tool is unavailable (Java 14+)
+        List<String> cmd = new ArrayList<>();
+        cmd.add(getJavaCmd());
+        cmd.add("-jar");
+        cmd.add(getPackJar());
+        cmd.add("--unpack");
+        return cmd;
+    }
+
     static String getPack200Cmd() {
-        return getAjavaCmd("pack200");
+        File nativeTool = new File(JavaHome, "bin" + FileSeparator
+                + "pack200" + (IsWindows ? ".exe" : ""));
+        if (nativeTool.canExecute()) {
+            return nativeTool.getAbsolutePath();
+        }
+        // Fall back to Java implementation when native tool is unavailable (Java 14+)
+        return getJavaCmd() + " -jar " + getPackJar();
+    }
+
+    static List<String> getPack200CmdList() {
+        File nativeTool = new File(JavaHome, "bin" + FileSeparator
+                + "pack200" + (IsWindows ? ".exe" : ""));
+        if (nativeTool.canExecute()) {
+            return Collections.singletonList(nativeTool.getAbsolutePath());
+        }
+        // Fall back to Java implementation when native tool is unavailable (Java 14+)
+        List<String> cmd = new ArrayList<>();
+        cmd.add(getJavaCmd());
+        cmd.add("-jar");
+        cmd.add(getPackJar());
+        return cmd;
     }
 
     static String getJavaCmd() {
