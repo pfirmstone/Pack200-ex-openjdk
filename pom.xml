@@ -73,6 +73,7 @@
                       <manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
                       <manifestEntries>
                           <Main-Class>au.net.zeus.util.jar.pack.Driver</Main-Class>
+                          <Multi-Release>true</Multi-Release>
                       </manifestEntries>
                   </archive>
               </configuration>
@@ -138,6 +139,89 @@
                 <artifactId>maven-antrun-plugin</artifactId>
                 <version>1.8</version>
                 <executions>
+                    <execution>
+                        <id>clean-mrjar</id>
+                        <phase>generate-sources</phase>
+                        <configuration>
+                            <target>
+                                <delete dir="${project.build.directory}/classes/META-INF/versions" quiet="true"/>
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>compile-multirelease</id>
+                        <phase>process-classes</phase>
+                        <configuration>
+                            <target>
+                                <!-- Java 11 specific classes -->
+                                <mkdir dir="${project.build.directory}/classes/META-INF/versions/11"/>
+                                <javac srcdir="${project.basedir}/src/main/java11"
+                                       destdir="${project.build.directory}/classes/META-INF/versions/11"
+                                       encoding="UTF-8"
+                                       includeantruntime="false">
+                                    <compilerarg value="--release"/>
+                                    <compilerarg value="11"/>
+                                    <classpath>
+                                        <path refid="maven.compile.classpath"/>
+                                    </classpath>
+                                </javac>
+                                <!-- Java 17 specific classes -->
+                                <mkdir dir="${project.build.directory}/classes/META-INF/versions/17"/>
+                                <javac srcdir="${project.basedir}/src/main/java17"
+                                       destdir="${project.build.directory}/classes/META-INF/versions/17"
+                                       encoding="UTF-8"
+                                       includeantruntime="false">
+                                    <compilerarg value="--release"/>
+                                    <compilerarg value="17"/>
+                                    <classpath>
+                                        <path refid="maven.compile.classpath"/>
+                                    </classpath>
+                                </javac>
+                                <!-- Java 21 specific classes -->
+                                <mkdir dir="${project.build.directory}/classes/META-INF/versions/21"/>
+                                <javac srcdir="${project.basedir}/src/main/java21"
+                                       destdir="${project.build.directory}/classes/META-INF/versions/21"
+                                       encoding="UTF-8"
+                                       includeantruntime="false">
+                                    <compilerarg value="--release"/>
+                                    <compilerarg value="17"/>
+                                    <classpath>
+                                        <path refid="maven.compile.classpath"/>
+                                    </classpath>
+                                </javac>
+                                <!-- Java 25 specific classes -->
+                                <mkdir dir="${project.build.directory}/classes/META-INF/versions/25"/>
+                                <javac srcdir="${project.basedir}/src/main/java25"
+                                       destdir="${project.build.directory}/classes/META-INF/versions/25"
+                                       encoding="UTF-8"
+                                       includeantruntime="false">
+                                    <compilerarg value="--release"/>
+                                    <compilerarg value="17"/>
+                                    <classpath>
+                                        <path refid="maven.compile.classpath"/>
+                                    </classpath>
+                                </javac>
+                                <!-- Java 27 specific classes -->
+                                <mkdir dir="${project.build.directory}/classes/META-INF/versions/27"/>
+                                <javac srcdir="${project.basedir}/src/main/java27"
+                                       destdir="${project.build.directory}/classes/META-INF/versions/27"
+                                       encoding="UTF-8"
+                                       includeantruntime="false">
+                                    <compilerarg value="--release"/>
+                                    <compilerarg value="17"/>
+                                    <classpath>
+                                        <path refid="maven.compile.classpath"/>
+                                    </classpath>
+                                </javac>
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
                     <execution>
                         <id>test</id>
                         <phase>verify</phase>
