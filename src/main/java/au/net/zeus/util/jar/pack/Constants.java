@@ -159,13 +159,52 @@ class Constants {
     public static final Package.Version JAVA11_PACKAGE_VERSION =
             Package.Version.of(190, 0);
 
+    // Minor bump within the 190.x family: signals Record / PermittedSubclasses
+    // attributes may be present (gated by AO_HAVE_CLASS_FLAGS_HI).  Archives at
+    // this version are still readable by a JAVA11_PACKAGE_VERSION (190.0) reader
+    // because those attributes are guarded by the option bit; the minor bump
+    // exists only so that a reader can emit an informative "please upgrade" hint
+    // rather than a hard failure when it sees an unknown-but-higher version.
+    public static final Package.Version JAVA17_PACKAGE_VERSION =
+            Package.Version.of(190, 1);
+
+    // Archive version 200.0 covers Java 18–21 class files (62.0–65.0).
+    // A new major is required if any future Java 18–21 feature introduces CP tags
+    // or structural header changes that older readers cannot skip.  For now the
+    // version is defined here so that the writer and reader stay in sync as soon
+    // as such a feature is implemented; the range-based version check in
+    // checkArchiveVersion() already accepts it.
+    public static final Package.Version JAVA18_PACKAGE_VERSION =
+            Package.Version.of(200, 0);
+
+    // Archive version 210.0 covers Java 22–25 class files (66.0–69.0).
+    public static final Package.Version JAVA22_PACKAGE_VERSION =
+            Package.Version.of(210, 0);
+
     // upper limit, should point to the latest class version
     public static final Package.Version JAVA_MAX_CLASS_VERSION =
             JAVA27_MAX_CLASS_VERSION;
 
-    // upper limit should point to the latest package version, for version info!.
+    // Upper limit: the highest archive (package) version that this implementation
+    // can *write*.  The reader accepts any version up to this value, and also
+    // issues a forward-compatibility warning (instead of a hard failure) for any
+    // version numerically higher than this constant, so that archives produced by
+    // a newer tool can still be attempted by an older reader.
+    //
+    // Mapping of archive versions to the Java class-file versions they cover:
+    //   150.7  (JAVA5)   : class 45.3–48.x
+    //   160.1  (JAVA6)   : class 49.0–50.x
+    //   170.1  (JAVA7)   : class 51.0      (requires InvokeDynamic; otherwise
+    //                                        downgraded to 160.1 by the writer)
+    //   171.0  (JAVA8)   : class 51.0–52.x (InvokeDynamic present, no Module/
+    //                                        Package CP entries)
+    //   180.0  (JAVA9)   : class 53.0–54.x (Module/Package CP entries allowed)
+    //   190.0  (JAVA11)  : class 55.0–61.x
+    //   190.1  (JAVA17)  : class 55.0–61.x + Record/PermittedSubclasses attrs
+    //   200.0  (JAVA18)  : class 62.0–65.x (Java 18–21)
+    //   210.0  (JAVA22)  : class 66.0–69.x (Java 22–25)
     public static final Package.Version MAX_PACKAGE_VERSION =
-            JAVA11_PACKAGE_VERSION;
+            JAVA22_PACKAGE_VERSION;
 
     public static final int CONSTANT_POOL_INDEX_LIMIT  = 0x10000;
     public static final int CONSTANT_POOL_NARROW_LIMIT = 0x00100;
@@ -287,6 +326,13 @@ class Constants {
     public static final int AO_HAVE_CODE_FLAGS_HI     = 1<<12;
     // Bit 13: set if the archive contains CONSTANT_Dynamic, CONSTANT_Module, or CONSTANT_Package entries
     public static final int AO_HAVE_CP_MODULE_DYNAMIC = 1<<13;
+    // Bits 14–31 are reserved for future use and MUST be zero in archives written
+    // by this implementation.  When adding support for a new group of CP tags or
+    // other structural changes, allocate the next free bit here (14, 15, …) and
+    // shift AO_UNUSED_MBZ left accordingly.  Example for a hypothetical Java-N
+    // feature using bit 14:
+    //   public static final int AO_HAVE_CP_JAVA_N = 1<<14;
+    //   public static final int AO_UNUSED_MBZ     = (-1)<<15;
     public static final int AO_UNUSED_MBZ          = (-1)<<14;  // option bits reserved for future use
 
     public static final int LG_AO_HAVE_XXX_FLAGS_HI   = 9;
