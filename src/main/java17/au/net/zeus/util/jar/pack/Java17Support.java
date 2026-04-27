@@ -41,7 +41,7 @@ class Java17Support {
 
     /**
      * Returns {@code true} if the given class is a record class.
-     * Uses the Java 16+ {@code Class.isRecord()} API.
+     * Uses the Java 16+ {@link Class#isRecord()} API.
      *
      * @param clazz the class to test
      * @return {@code true} if the class is a record
@@ -52,7 +52,7 @@ class Java17Support {
 
     /**
      * Returns {@code true} if the given class or interface is sealed.
-     * Uses the Java 17+ {@code Class.isSealed()} API.
+     * Uses the Java 17 {@link Class#isSealed()} API.
      *
      * @param clazz the class or interface to test
      * @return {@code true} if the class is sealed
@@ -63,7 +63,7 @@ class Java17Support {
 
     /**
      * Returns the permitted subclasses of the given sealed class or interface.
-     * Uses the Java 17+ {@code Class.getPermittedSubclasses()} API.
+     * Uses the Java 17 {@link Class#getPermittedSubclasses()} API.
      *
      * @param clazz the sealed class or interface
      * @return array of permitted subclasses, or {@code null} if not sealed

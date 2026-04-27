@@ -180,7 +180,11 @@
                                         <path refid="maven.compile.classpath"/>
                                     </classpath>
                                 </javac>
-                                <!-- Java 21 specific classes -->
+                                <!-- Java 21 specific classes.
+                                     NOTE: These stubs contain no Java 21 specific APIs and are
+                                     compiled with release 17 as a minimum baseline compatible
+                                     with the build JDK (Java 17). When building on JDK 21+,
+                                     update this to release 21 to enable Java 21 APIs. -->
                                 <mkdir dir="${project.build.directory}/classes/META-INF/versions/21"/>
                                 <javac srcdir="${project.basedir}/src/main/java21"
                                        destdir="${project.build.directory}/classes/META-INF/versions/21"
@@ -192,7 +196,9 @@
                                         <path refid="maven.compile.classpath"/>
                                     </classpath>
                                 </javac>
-                                <!-- Java 25 specific classes -->
+                                <!-- Java 25 specific classes.
+                                     NOTE: Compiled with release 17 as a minimum baseline;
+                                     update to release 25 when building on JDK 25+. -->
                                 <mkdir dir="${project.build.directory}/classes/META-INF/versions/25"/>
                                 <javac srcdir="${project.basedir}/src/main/java25"
                                        destdir="${project.build.directory}/classes/META-INF/versions/25"
@@ -204,7 +210,9 @@
                                         <path refid="maven.compile.classpath"/>
                                     </classpath>
                                 </javac>
-                                <!-- Java 27 specific classes -->
+                                <!-- Java 27 specific classes.
+                                     NOTE: Compiled with release 17 as a minimum baseline;
+                                     update to release 27 when building on JDK 27+. -->
                                 <mkdir dir="${project.build.directory}/classes/META-INF/versions/27"/>
                                 <javac srcdir="${project.basedir}/src/main/java27"
                                        destdir="${project.build.directory}/classes/META-INF/versions/27"
