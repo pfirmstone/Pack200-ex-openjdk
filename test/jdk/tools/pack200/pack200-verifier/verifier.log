@@ -1,0 +1,79 @@
+Log started Mon Apr 27 10:10:30 UTC 2026
+17.0.18+8	OpenJDK 64-Bit Server VM
+System properties
+	java.home=/usr/lib/jvm/temurin-17-jdk-amd64
+	java.class.version=61.0
+	java.class.path=dist/pack200-verifier.jar
+	os.name=Linux
+	os.arch=amd64
+	os.version=6.17.0-1010-azure
+	user.name=runner
+	user.home=/home/runner
+	user.dir=/home/runner/work/Pack200-ex-openjdk/Pack200-ex-openjdk/test/jdk/tools/pack200/pack200-verifier
+	Locale.getDefault=en
+System properties end
+LogFile:./verifier.log
+Reference JAR:/home/runner/work/Pack200-ex-openjdk/Pack200-ex-openjdk/test/jdk/tools/pack200/pack200-verifier/data/golden.jar
+Compared  JAR:/home/runner/work/Pack200-ex-openjdk/Pack200-ex-openjdk/test/jdk/tools/pack200/pack200-verifier/data/golden.jar
+Ignore Compile Attributes:false
+Ignore Debug   Attributes:false
+Ignore Unknown Attributes:false
+Class ordering check:true
+Class validation check:true
+Bit-wise compare:false
+ClassName:ALL
+Unknown attributes ignored:false
+[]
++++Remote.class+++	b/b:PASS
++++com/sun/java/util/jar/pack/ClassWriter.class+++	b/b:PASS
++++com/sun/java/util/jar/pack/Driver.class+++	b/b:PASS
++++com/sun/media/sound/MixerSequencer.class+++	b/b:PASS
++++com/sun/org/apache/xerces/internal/impl/xpath/regex/ParserForXMLSchema.class+++	b/b:PASS
++++com/sun/org/apache/xerces/internal/impl/xpath/regex/Token.class+++	b/b:PASS
++++com/sun/tools/javac/comp/Attr.class+++	b/b:PASS
++++com/sun/tools/javac/parser/Parser.class+++	b/b:PASS
++++indy/test/java/lang/invoke/InvokeDynamicPrintArgs$PrintingCallSite.class+++	b/b:PASS
++++indy/test/java/lang/invoke/InvokeDynamicPrintArgs.class+++	b/b:PASS
++++indy/test/java/util/stream/Collectors.class+++	b/b:PASS
++++indy/test/java/util/stream/Streams.class+++	b/b:PASS
++++jdk.scripting.nashorn/jdk/nashorn/internal/objects/NativeString$Prototype.class+++	b/b:PASS
++++jdk.scripting.nashorn/jdk/nashorn/internal/objects/NativeString.class+++	b/b:PASS
++++odds/Bad.Nm.class+++	b/b:PASS
++++odds/BadAtt.class+++	b/b:PASS
++++odds/BadCFV.class+++	b/b:PASS
++++odds/BadFmt.class+++	b/b:PASS
++++odds/HasEncM.class+++	b/b:PASS
++++odds/ManyAttr2.class+++	b/b:PASS
++++odds/ManyAttrs.class+++	b/b:PASS
++++odds/Nest$C.class+++	b/b:PASS
++++odds/OddCFV.class+++	b/b:PASS
++++odds/RTIA.class+++	b/b:PASS
++++odds/UnitTest.class+++	b/b:PASS
++++subdir1/Remote.class+++	b/b:PASS
++++subdir2/ByteToCharCp1383.class+++	b/b:PASS
++++subdir2/ByteToCharCp278.class+++	b/b:PASS
++++subdir2/subsubdir2/CharacterData01.class+++	b/b:PASS
++++subdir2/subsubdir2/Deployment_ja.class+++	b/b:PASS
++++subdir3/subsubdir/subsubsubdir/CharacterDataLatin1.class+++	b/b:PASS
++++sun/awt/X11/XComponentPeer.class+++	b/b:PASS
++++sun/awt/X11/XToolkit.class+++	b/b:PASS
++++sun/print/PSPrinterJob.class+++	b/b:PASS
++++java/util/Mop.class+++	b/b:PASS
++++java/util/Mip.class+++	b/b:PASS
++++java/util/Map.class+++	b/b:PASS
++++java/util/Map$Entry.class+++	b/b:PASS
++++java/util/IdentityHashMap.class+++	b/b:PASS
++++java/util/Hashtable.class+++	b/b:PASS
++++java/util/AbstractList.class+++	b/b:PASS
++++java/util/AbstractList$ListItr.class+++	b/b:PASS
++++java/util/AbstractList$Itr.class+++	b/b:PASS
++++java/util/AbstractList$1.class+++	b/b:PASS
++++java/rmi/Remote.class+++	b/b:PASS
++++java/lang/annotation/Target.class+++	b/b:PASS
++++java/lang/annotation/Retention.class+++	b/b:PASS
++++java/lang/String.class+++	b/b:PASS
++++java/lang/Override.class+++	b/b:PASS
++++java/beans/java_util_Hashtable_PersistenceDelegate.class+++	b/b:PASS
++++java/awt/Container.class+++	b/b:PASS
++++java/awt/Component.class+++	b/b:PASS
+PASS
