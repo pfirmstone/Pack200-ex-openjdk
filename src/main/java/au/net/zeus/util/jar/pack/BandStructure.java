@@ -2045,6 +2045,14 @@ class BandStructure {
             // Clear the bits set by predefineAttribute for the new higher indices.
             attrDefSeen[ATTR_CONTEXT_CLASS] &= ~((1L << CLASS_ATTR_Record)
                                                  | (1L << CLASS_ATTR_PermittedSubclasses));
+        } else if (isReader) {
+            // These bands are only activated when AO_HAVE_CLASS_FLAGS_HI is set.
+            // Mark them as unused so phase assertions don't fire.
+            class_Record_N.doneWithUnusedBand();
+            class_Record_name_RU.doneWithUnusedBand();
+            class_Record_type_RS.doneWithUnusedBand();
+            class_PermittedSubclasses_N.doneWithUnusedBand();
+            class_PermittedSubclasses_RC.doneWithUnusedBand();
         }
     }
 

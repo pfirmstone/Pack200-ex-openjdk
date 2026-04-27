@@ -1931,9 +1931,12 @@ class PackageReader extends BandStructure {
             class_InnerClasses_F.doneDisbursing();
             class_InnerClasses_outer_RCN.doneDisbursing();
             class_InnerClasses_name_RUN.doneDisbursing();
-            class_Record_N.doneDisbursing();
-            class_Record_name_RU.doneDisbursing();
-            class_Record_type_RS.doneDisbursing();
+            // Record bands are only active when AO_HAVE_CLASS_FLAGS_HI is set.
+            if (testBit(archiveOptions, AO_HAVE_CLASS_FLAGS_HI)) {
+                class_Record_N.doneDisbursing();
+                class_Record_name_RU.doneDisbursing();
+                class_Record_type_RS.doneDisbursing();
+            }
         }
 
         MultiBand xxx_attr_bands = attrBands[ctype];

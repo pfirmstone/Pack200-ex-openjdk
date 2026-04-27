@@ -169,6 +169,17 @@ class Attribute implements Comparable<Attribute> {
         define(sd, ATTR_CONTEXT_CLASS, "InnerClasses", "NH[RCHRCNHRUNHFH]");
         define(sd, ATTR_CONTEXT_CLASS, "BootstrapMethods", "NH[RMHNH[KLH]]");
 
+        // Java 9 module-related attributes (class context)
+        define(sd, ATTR_CONTEXT_CLASS, "ModuleMainClass", "RCH");
+        define(sd, ATTR_CONTEXT_CLASS, "ModulePackages", "NH[RXH]");
+
+        // Java 11 nesting attributes (class context)
+        define(sd, ATTR_CONTEXT_CLASS, "NestHost",    "RCH");
+        define(sd, ATTR_CONTEXT_CLASS, "NestMembers", "NH[RCH]");
+
+        // Java 17 sealed classes (class context)
+        define(sd, ATTR_CONTEXT_CLASS, "PermittedSubclasses", "NH[RCH]");
+
         define(sd, ATTR_CONTEXT_FIELD, "Signature", "RSH");
         define(sd, ATTR_CONTEXT_FIELD, "Synthetic", "");
         define(sd, ATTR_CONTEXT_FIELD, "Deprecated", "");
