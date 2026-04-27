@@ -542,6 +542,12 @@ class Utils {
         return sb.toString();
     }
     
+    /**
+     * @deprecated Use {@link #getUnpack200CmdList()} instead. This method may
+     *             return a multi-token string when native tools are unavailable,
+     *             which cannot be used directly with ProcessBuilder.
+     */
+    @Deprecated
     static String getUnpack200Cmd() {
         File nativeTool = new File(JavaHome, "bin" + FileSeparator
                 + "unpack200" + (IsWindows ? ".exe" : ""));
@@ -567,6 +573,12 @@ class Utils {
         return cmd;
     }
 
+    /**
+     * @deprecated Use {@link #getPack200CmdList()} instead. This method may
+     *             return a multi-token string when native tools are unavailable,
+     *             which cannot be used directly with ProcessBuilder.
+     */
+    @Deprecated
     static String getPack200Cmd() {
         File nativeTool = new File(JavaHome, "bin" + FileSeparator
                 + "pack200" + (IsWindows ? ".exe" : ""));
