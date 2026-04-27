@@ -159,13 +159,25 @@ class Constants {
     public static final Package.Version JAVA11_PACKAGE_VERSION =
             Package.Version.of(190, 0);
 
+    public static final Package.Version JAVA17_PACKAGE_VERSION =
+            Package.Version.of(210, 0);
+
+    public static final Package.Version JAVA21_PACKAGE_VERSION =
+            Package.Version.of(220, 0);
+
+    public static final Package.Version JAVA25_PACKAGE_VERSION =
+            Package.Version.of(230, 0);
+
+    public static final Package.Version JAVA27_PACKAGE_VERSION =
+            Package.Version.of(240, 0);
+
     // upper limit, should point to the latest class version
     public static final Package.Version JAVA_MAX_CLASS_VERSION =
             JAVA27_MAX_CLASS_VERSION;
 
     // upper limit should point to the latest package version, for version info!.
     public static final Package.Version MAX_PACKAGE_VERSION =
-            JAVA11_PACKAGE_VERSION;
+            JAVA27_PACKAGE_VERSION;
 
     public static final int CONSTANT_POOL_INDEX_LIMIT  = 0x10000;
     public static final int CONSTANT_POOL_NARROW_LIMIT = 0x00100;

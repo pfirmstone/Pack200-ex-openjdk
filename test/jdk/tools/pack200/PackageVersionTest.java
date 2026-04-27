@@ -53,6 +53,10 @@ public class PackageVersionTest {
     public final static int JAVA7_PACKAGE_MAJOR_VERSION = 170;
     public final static int JAVA7_PACKAGE_MINOR_VERSION = 1;
 
+    // Current maximum package version supported by this implementation (Java 27 = 240.0).
+    public final static int MAX_PACKAGE_MAJOR_VERSION = 240;
+    public final static int MAX_PACKAGE_MINOR_VERSION = 0;
+
     public static void main(String... args) throws IOException {
         File out = new File("test.pack");
         createClassFile("Test6");
@@ -75,7 +79,7 @@ public class PackageVersionTest {
         String versionStr = unpacker.toString();
         String expected = "Pack200, Vendor: " +
                 System.getProperty("java.vendor") + ", Version: " +
-                JAVA7_PACKAGE_MAJOR_VERSION + "." + JAVA7_PACKAGE_MINOR_VERSION;
+                MAX_PACKAGE_MAJOR_VERSION + "." + MAX_PACKAGE_MINOR_VERSION;
         if (!versionStr.equals(expected)) {
             System.out.println("Expected: " + expected);
             System.out.println("Obtained: " + versionStr);

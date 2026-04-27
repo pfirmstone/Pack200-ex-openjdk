@@ -267,6 +267,10 @@ class PackageReader extends BandStructure {
     void checkArchiveVersion() throws IOException {
         Package.Version versionFound = null;
         for (Package.Version v : new Package.Version[] {
+                JAVA27_PACKAGE_VERSION,
+                JAVA25_PACKAGE_VERSION,
+                JAVA21_PACKAGE_VERSION,
+                JAVA17_PACKAGE_VERSION,
                 JAVA11_PACKAGE_VERSION,
                 JAVA9_PACKAGE_VERSION,
                 JAVA8_PACKAGE_VERSION,
@@ -280,7 +284,15 @@ class PackageReader extends BandStructure {
             }
         }
         if (versionFound == null) {
-            String expVer = JAVA11_PACKAGE_VERSION.toString()
+            String expVer = JAVA27_PACKAGE_VERSION.toString()
+                            + " OR "
+                            + JAVA25_PACKAGE_VERSION.toString()
+                            + " OR "
+                            + JAVA21_PACKAGE_VERSION.toString()
+                            + " OR "
+                            + JAVA17_PACKAGE_VERSION.toString()
+                            + " OR "
+                            + JAVA11_PACKAGE_VERSION.toString()
                             + " OR "
                             + JAVA9_PACKAGE_VERSION.toString()
                             + " OR "
