@@ -977,7 +977,7 @@ abstract class AttributeVisitor implements Attribute.Visitor<Element, Element> {
             } catch (ClassNotFoundException e) {
                 // Not compiled for this JDK version, try next
             } catch (ReflectiveOperationException e) {
-                throw new RuntimeException("Failed to instantiate " + className, e);
+                throw new RuntimeException("Failed to instantiate " + className + ": " + e.getMessage(), e);
             }
         }
         throw new RuntimeException(
