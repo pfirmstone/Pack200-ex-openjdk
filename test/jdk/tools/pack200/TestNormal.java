@@ -35,11 +35,6 @@ import java.io.*;
 public class TestNormal {
     private static String FS = File.separator;
 
-    // The jar -n (normalize) flag was removed in Java 17.
-    private static boolean isJarNormalizeFlagSupported() {
-        return Runtime.version().feature() < 17;
-    }
-
     public static void main(String args[]) throws Exception {
         String testdir = Utils.TEST_CLS_DIR.getAbsolutePath();
 
@@ -49,18 +44,14 @@ public class TestNormal {
             String packJar = Utils.getPackJar();
 
             // create the original jar
-            Utils.runExec(jarCmd, "cf", "original.jar", "-C", testdir, ".");
+            Utils.runExec(jarCmd, "-cf", "original.jar", "-C", testdir, ".");
 
             // create the reference jar
             Utils.runExec(javaCmd, "-jar", packJar, "--pack", "-r", "repacked.jar", "original.jar");
 
             // create the normalized jar using jar(1)
-            // The -n flag (normalize timestamps) was removed in Java 17+
-            if (isJarNormalizeFlagSupported()) {
-                Utils.runExec(jarCmd, "cnf", "normalized.jar", "-C", testdir, ".");
-            } else {
-                Utils.runExec(jarCmd, "cf", "normalized.jar", "-C", testdir, ".");
-            }
+            // Use -cf syntax (the old -n normalize flag was removed in Java 9+)
+            Utils.runExec(jarCmd, "-cf", "normalized.jar", "-C", testdir, ".");
 
             // compare archive contents bit wise, these should be identical!
             Utils.doCompareBitWise(new File("repacked.jar"),
