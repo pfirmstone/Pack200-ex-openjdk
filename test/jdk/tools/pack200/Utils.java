@@ -542,12 +542,65 @@ class Utils {
         return sb.toString();
     }
     
+    /**
+     * @deprecated Use {@link #getUnpack200CmdList()} instead. This method may
+     *             return a multi-token string when native tools are unavailable,
+     *             which cannot be used directly with ProcessBuilder.
+     */
+    @Deprecated
     static String getUnpack200Cmd() {
-        return getAjavaCmd("unpack200");
+        File nativeTool = new File(JavaHome, "bin" + FileSeparator
+                + "unpack200" + (IsWindows ? ".exe" : ""));
+        if (nativeTool.canExecute()) {
+            return nativeTool.getAbsolutePath();
+        }
+        // Fall back to Java implementation when native tool is unavailable (Java 14+)
+        return getJavaCmd() + " -jar " + getPackJar();
     }
-    
+
+    static List<String> getUnpack200CmdList() {
+        File nativeTool = new File(JavaHome, "bin" + FileSeparator
+                + "unpack200" + (IsWindows ? ".exe" : ""));
+        if (nativeTool.canExecute()) {
+            return Collections.singletonList(nativeTool.getAbsolutePath());
+        }
+        // Fall back to Java implementation when native tool is unavailable (Java 14+)
+        List<String> cmd = new ArrayList<>();
+        cmd.add(getJavaCmd());
+        cmd.add("-jar");
+        cmd.add(getPackJar());
+        cmd.add("--unpack");
+        return cmd;
+    }
+
+    /**
+     * @deprecated Use {@link #getPack200CmdList()} instead. This method may
+     *             return a multi-token string when native tools are unavailable,
+     *             which cannot be used directly with ProcessBuilder.
+     */
+    @Deprecated
     static String getPack200Cmd() {
-        return getAjavaCmd("pack200");
+        File nativeTool = new File(JavaHome, "bin" + FileSeparator
+                + "pack200" + (IsWindows ? ".exe" : ""));
+        if (nativeTool.canExecute()) {
+            return nativeTool.getAbsolutePath();
+        }
+        // Fall back to Java implementation when native tool is unavailable (Java 14+)
+        return getJavaCmd() + " -jar " + getPackJar();
+    }
+
+    static List<String> getPack200CmdList() {
+        File nativeTool = new File(JavaHome, "bin" + FileSeparator
+                + "pack200" + (IsWindows ? ".exe" : ""));
+        if (nativeTool.canExecute()) {
+            return Collections.singletonList(nativeTool.getAbsolutePath());
+        }
+        // Fall back to Java implementation when native tool is unavailable (Java 14+)
+        List<String> cmd = new ArrayList<>();
+        cmd.add(getJavaCmd());
+        cmd.add("-jar");
+        cmd.add(getPackJar());
+        return cmd;
     }
 
     static String getJavaCmd() {

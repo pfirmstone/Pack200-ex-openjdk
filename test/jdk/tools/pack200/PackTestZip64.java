@@ -65,7 +65,7 @@ public class PackTestZip64 {
         List<String> cmdsList = new ArrayList<>();
 
         // Repack file to get the Java-based result
-        cmdsList.add(Utils.getPack200Cmd());
+        cmdsList.addAll(Utils.getPack200CmdList());
         cmdsList.add("--repack");
         cmdsList.add(testFile.getName());
         Utils.runExec(cmdsList);
@@ -73,14 +73,14 @@ public class PackTestZip64 {
 
         // Pack file with pack200 and unpack in with unpack200
         File packedFile = new File("tools.pack.gz");
-        cmdsList.add(Utils.getPack200Cmd());
+        cmdsList.addAll(Utils.getPack200CmdList());
         cmdsList.add(packedFile.getName());
         cmdsList.add(testFile.getName());
         Utils.runExec(cmdsList);
         cmdsList.clear();
 
         File unpackedFile = new File("tools_native.jar");
-        cmdsList.add(Utils.getUnpack200Cmd());
+        cmdsList.addAll(Utils.getUnpack200CmdList());
         cmdsList.add(packedFile.getName());
         cmdsList.add(unpackedFile.getName());
         Utils.runExec(cmdsList);

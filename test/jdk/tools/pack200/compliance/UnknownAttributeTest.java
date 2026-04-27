@@ -65,7 +65,7 @@ public class UnknownAttributeTest {
         File badAttr = copyBadAttrJar("badattr-pass.jar");
 
         File repacked = new File("badattr-pass-out.jar");
-        List<String> output = Utils.repack(badAttr, repacked, false,
+        List<String> output = Utils.repack(badAttr, repacked,
                 "--unknown-attribute=pass");
 
         if (!repacked.exists()) {
@@ -90,7 +90,7 @@ public class UnknownAttributeTest {
         boolean failed = false;
         List<String> output = new ArrayList<>();
         try {
-            output = Utils.repack(badAttr, repacked, false, "--unknown-attribute=error");
+            output = Utils.repack(badAttr, repacked, "--unknown-attribute=error");
         } catch (RuntimeException re) {
             // expected: non-zero exit from the repack process
             failed = true;
@@ -108,7 +108,7 @@ public class UnknownAttributeTest {
         File badAttr = copyBadAttrJar("badattr-strip.jar");
         File repacked = new File("badattr-strip-out.jar");
 
-        List<String> output = Utils.repack(badAttr, repacked, false,
+        List<String> output = Utils.repack(badAttr, repacked,
                 "--unknown-attribute=strip");
 
         if (!repacked.exists()) {
