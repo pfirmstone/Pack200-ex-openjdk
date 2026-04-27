@@ -20,15 +20,27 @@
   </target>
 
   <target name="compile" depends="init">
+    <!-- Determine which version-specific AttributeVisitor to exclude -->
+    <condition property="exclude.legacy.visitor" value="true">
+      <javaversion atleast="15"/>
+    </condition>
+    <condition property="exclude.modern.visitor" value="true">
+      <not><javaversion atleast="15"/></not>
+    </condition>
+
     <!-- Compile the java code from ${src} into ${build} -->
-     <javac 
+    <javac
 	   source="1.9"
 	   srcdir="${src}"
 	   destdir="${build}/classes"
 	   verbose="no"
 	   debug="on">
-       <compilerarg line="--add-exports jdk.jdeps/com.sun.tools.classfile=ALL-UNNAMED"/>
-     </javac>
+      <compilerarg line="--add-modules=jdk.jdeps --add-exports=jdk.jdeps/com.sun.tools.classfile=ALL-UNNAMED"/>
+      <!-- On JDK 15+, exclude the legacy visitor (uses no-op for new attributes) -->
+      <exclude name="**/LegacyAttributeVisitor.java" if="exclude.legacy.visitor"/>
+      <!-- On JDK older than 15, exclude the modern visitor (imports unavailable classes) -->
+      <exclude name="**/ModernAttributeVisitor.java" if="exclude.modern.visitor"/>
+    </javac>
   </target>
 
   <target name="doc" depends="init, compile">

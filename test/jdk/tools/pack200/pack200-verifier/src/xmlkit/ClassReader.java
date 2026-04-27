@@ -85,8 +85,6 @@ import com.sun.tools.classfile.ModuleTarget_attribute;
 import com.sun.tools.classfile.ModulePackages_attribute;
 import com.sun.tools.classfile.NestHost_attribute;
 import com.sun.tools.classfile.NestMembers_attribute;
-import com.sun.tools.classfile.PermittedSubclasses_attribute;
-import com.sun.tools.classfile.Record_attribute;
 import com.sun.tools.classfile.Opcode;
 import com.sun.tools.classfile.RuntimeInvisibleAnnotations_attribute;
 import com.sun.tools.classfile.RuntimeInvisibleParameterAnnotations_attribute;
@@ -525,7 +523,7 @@ public class ClassReader {
 
     protected  void readAttributesFor(ClassFile c, Attributes attrs, Element x) {
         Element container = new Element();
-        AttributeVisitor av = new AttributeVisitor(this, c);
+        AttributeVisitor av = AttributeVisitor.create(this, c);
         for (Attribute a : attrs) {
             av.visit(a, container);
         }
@@ -948,7 +946,7 @@ class ConstantPoolVisitor implements ConstantPool.Visitor<String, Integer> {
     }
 }
 
-class AttributeVisitor implements Attribute.Visitor<Element, Element> {
+abstract class AttributeVisitor implements Attribute.Visitor<Element, Element> {
     final ClassFile cf;
     final ClassReader x;
     final AnnotationsElementVisitor aev;
@@ -959,6 +957,32 @@ class AttributeVisitor implements Attribute.Visitor<Element, Element> {
         this.cf = cf;
         iv =  new InstructionVisitor(x, cf);
         aev = new AnnotationsElementVisitor(x, cf);
+    }
+
+    /**
+     * Factory method that creates the appropriate concrete AttributeVisitor
+     * implementation based on what is available in the current JDK.
+     * On Java 15+, ModernAttributeVisitor is used (supports Record and
+     * PermittedSubclasses attributes). On older JDKs, LegacyAttributeVisitor
+     * is used (supports all attributes available in those versions).
+     */
+    static AttributeVisitor create(ClassReader x, ClassFile cf) {
+        for (String className : new String[] {
+                "xmlkit.ModernAttributeVisitor",
+                "xmlkit.LegacyAttributeVisitor"}) {
+            try {
+                return (AttributeVisitor) Class.forName(className)
+                        .getDeclaredConstructor(ClassReader.class, ClassFile.class)
+                        .newInstance(x, cf);
+            } catch (ClassNotFoundException e) {
+                // Not compiled for this JDK version, try next
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException("Failed to instantiate " + className + ": " + e.getMessage(), e);
+            }
+        }
+        throw new RuntimeException(
+                "No AttributeVisitor implementation found. "
+                + "Ensure the verifier was compiled for the current JDK version.");
     }
 
     public void visit(Attribute a, Element parent) {
@@ -1587,37 +1611,6 @@ class AttributeVisitor implements Attribute.Visitor<Element, Element> {
             Element n = new Element("Item");
             n.setAttr("class", x.getCpString(idx));
             ee.add(n);
-        }
-        ee.trimToSize();
-        p.add(ee);
-        return null;
-    }
-
-    @Override
-    public Element visitPermittedSubclasses(PermittedSubclasses_attribute attr, Element p) {
-        Element ee = new Element(x.getCpString(attr.attribute_name_index));
-        for (int idx : attr.subtypes) {
-            Element n = new Element("Item");
-            n.setAttr("class", x.getCpString(idx));
-            ee.add(n);
-        }
-        ee.trimToSize();
-        p.add(ee);
-        return null;
-    }
-
-    @Override
-    public Element visitRecord(Record_attribute attr, Element p) {
-        Element ee = new Element(x.getCpString(attr.attribute_name_index));
-        try {
-            for (Record_attribute.ComponentInfo ci : attr.component_info_arr) {
-                Element comp = new Element("Component");
-                comp.setAttr("name", x.getCpString(ci.name_index));
-                comp.setAttr("descriptor", ci.descriptor.getValue(cf.constant_pool));
-                ee.add(comp);
-            }
-        } catch (Exception e) {
-            // ignore parse errors — treat as unknown
         }
         ee.trimToSize();
         p.add(ee);

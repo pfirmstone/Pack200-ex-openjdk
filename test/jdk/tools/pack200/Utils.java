@@ -98,6 +98,16 @@ class Utils {
         }
         File srcDir = new File(getVerifierDir(), "src");
         List<File> javaFileList = findFiles(srcDir, createFilter(JAVA_FILE_EXT));
+
+        // Conditionally include the version-specific AttributeVisitor implementation.
+        // ModernAttributeVisitor requires PermittedSubclasses_attribute and
+        // Record_attribute which were added in JDK 15. LegacyAttributeVisitor
+        // is used for JDK versions older than 15 where those classes do not exist.
+        boolean modernJdk = Runtime.version().feature() >= 15;
+        final String excludeName = modernJdk ? "LegacyAttributeVisitor.java"
+                                             : "ModernAttributeVisitor.java";
+        javaFileList.removeIf(f -> f.getName().equals(excludeName));
+
         File tmpFile = File.createTempFile("javac", ".tmp", new File("."));
         XCLASSES.mkdirs();
         FileOutputStream fos = null;
