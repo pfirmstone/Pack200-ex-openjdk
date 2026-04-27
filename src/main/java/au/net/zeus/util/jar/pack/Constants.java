@@ -181,6 +181,18 @@ class Constants {
     public static final Package.Version JAVA22_PACKAGE_VERSION =
             Package.Version.of(210, 0);
 
+    // Archive version 220.0 covers Java 26 class files (70.0).
+    public static final Package.Version JAVA21_PACKAGE_VERSION =
+            Package.Version.of(220, 0);
+
+    // Archive version 230.0 covers Java 27 class files (71.0).
+    public static final Package.Version JAVA25_PACKAGE_VERSION =
+            Package.Version.of(230, 0);
+
+    // Archive version 240.0 is reserved for future Java versions beyond 27.
+    public static final Package.Version JAVA27_PACKAGE_VERSION =
+            Package.Version.of(240, 0);
+
     // upper limit, should point to the latest class version
     public static final Package.Version JAVA_MAX_CLASS_VERSION =
             JAVA27_MAX_CLASS_VERSION;
@@ -203,8 +215,11 @@ class Constants {
     //   190.1  (JAVA17)  : class 55.0–61.x + Record/PermittedSubclasses attrs
     //   200.0  (JAVA18)  : class 62.0–65.x (Java 18–21)
     //   210.0  (JAVA22)  : class 66.0–69.x (Java 22–25)
+    //   220.0  (JAVA21)  : class 70.0       (Java 26)
+    //   230.0  (JAVA25)  : class 71.0       (Java 27)
+    //   240.0  (JAVA27)  : reserved for future Java versions
     public static final Package.Version MAX_PACKAGE_VERSION =
-            JAVA22_PACKAGE_VERSION;
+            JAVA27_PACKAGE_VERSION;
 
     public static final int CONSTANT_POOL_INDEX_LIMIT  = 0x10000;
     public static final int CONSTANT_POOL_NARROW_LIMIT = 0x00100;

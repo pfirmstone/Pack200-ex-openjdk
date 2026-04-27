@@ -136,8 +136,54 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>
-                <version>1.8</version>
+                <version>3.1.0</version>
                 <executions>
+                    <execution>
+                        <id>clean-mrjar</id>
+                        <phase>generate-sources</phase>
+                        <configuration>
+                            <target>
+                                <delete dir="${project.build.outputDirectory}/META-INF/versions" quiet="true"/>
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>compile-multirelease-11</id>
+                        <phase>process-classes</phase>
+                        <configuration>
+                            <target>
+                                <mkdir dir="${project.build.outputDirectory}/META-INF/versions/11"/>
+                                <javac srcdir="${project.basedir}/src/main/java11"
+                                       destdir="${project.build.outputDirectory}/META-INF/versions/11"
+                                       source="11" target="11"
+                                       includeantruntime="false"
+                                       classpath="${project.build.outputDirectory}"/>
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>compile-multirelease-17</id>
+                        <phase>process-classes</phase>
+                        <configuration>
+                            <target>
+                                <mkdir dir="${project.build.outputDirectory}/META-INF/versions/17"/>
+                                <javac srcdir="${project.basedir}/src/main/java17"
+                                       destdir="${project.build.outputDirectory}/META-INF/versions/17"
+                                       source="17" target="17"
+                                       includeantruntime="false"
+                                       classpath="${project.build.outputDirectory}"/>
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
                     <execution>
                         <id>test</id>
                         <phase>verify</phase>
@@ -218,4 +264,109 @@
             </plugin>
         </plugins>
     </reporting>
+
+    <profiles>
+        <profile>
+            <id>java-21-plus</id>
+            <activation>
+                <jdk>[21,)</jdk>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <executions>
+                            <execution>
+                                <id>compile-multirelease-21</id>
+                                <phase>process-classes</phase>
+                                <configuration>
+                                    <target>
+                                        <mkdir dir="${project.build.outputDirectory}/META-INF/versions/21"/>
+                                        <javac srcdir="${project.basedir}/src/main/java21"
+                                               destdir="${project.build.outputDirectory}/META-INF/versions/21"
+                                               source="21" target="21"
+                                               includeantruntime="false"
+                                               classpath="${project.build.outputDirectory}"/>
+                                    </target>
+                                </configuration>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>java-25-plus</id>
+            <activation>
+                <jdk>[25,)</jdk>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <executions>
+                            <execution>
+                                <id>compile-multirelease-25</id>
+                                <phase>process-classes</phase>
+                                <configuration>
+                                    <target>
+                                        <mkdir dir="${project.build.outputDirectory}/META-INF/versions/25"/>
+                                        <javac srcdir="${project.basedir}/src/main/java25"
+                                               destdir="${project.build.outputDirectory}/META-INF/versions/25"
+                                               source="25" target="25"
+                                               includeantruntime="false"
+                                               classpath="${project.build.outputDirectory}"/>
+                                    </target>
+                                </configuration>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>java-27-plus</id>
+            <activation>
+                <jdk>[27,)</jdk>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <executions>
+                            <execution>
+                                <id>compile-multirelease-27</id>
+                                <phase>process-classes</phase>
+                                <configuration>
+                                    <target>
+                                        <mkdir dir="${project.build.outputDirectory}/META-INF/versions/27"/>
+                                        <javac srcdir="${project.basedir}/src/main/java27"
+                                               destdir="${project.build.outputDirectory}/META-INF/versions/27"
+                                               source="27" target="27"
+                                               includeantruntime="false"
+                                               classpath="${project.build.outputDirectory}"/>
+                                    </target>
+                                </configuration>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
