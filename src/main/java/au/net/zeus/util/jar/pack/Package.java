@@ -32,6 +32,7 @@ import au.net.zeus.util.jar.pack.ConstantPool.DescriptorEntry;
 import au.net.zeus.util.jar.pack.ConstantPool.BootstrapMethodEntry;
 import au.net.zeus.util.jar.pack.ConstantPool.Index;
 import au.net.zeus.util.jar.pack.ConstantPool.LiteralEntry;
+import au.net.zeus.util.jar.pack.ConstantPool.SignatureEntry;
 import au.net.zeus.util.jar.pack.ConstantPool.Utf8Entry;
 import au.net.zeus.util.jar.pack.ConstantPool.Entry;
 import java.io.ByteArrayInputStream;
@@ -127,6 +128,7 @@ class Package {
     public static final Attribute.Layout attrBootstrapMethodsEmpty;
     public static final Attribute.Layout attrInnerClassesEmpty;
     public static final Attribute.Layout attrSourceFileSpecial;
+    public static final Attribute.Layout attrRecordEmpty;
     public static final Map<Attribute.Layout, Attribute> attrDefs;
     static {
         Map<Layout, Attribute> ad = new HashMap<>(3);
@@ -138,6 +140,8 @@ class Package {
                                                  "InnerClasses", "").layout();
         attrSourceFileSpecial = Attribute.define(ad, ATTR_CONTEXT_CLASS,
                                                  "SourceFile", "RUNH").layout();
+        attrRecordEmpty = Attribute.define(ad, ATTR_CONTEXT_CLASS,
+                                           "Record", "").layout();
         attrDefs = Collections.unmodifiableMap(ad);
     }
 
@@ -199,6 +203,8 @@ class Package {
         // Note that InnerClasses may be collected at the package level.
         ArrayList<InnerClass> innerClasses;
         ArrayList<BootstrapMethodEntry> bootstrapMethods;
+        // Record components, non-null when this is a record class.
+        ArrayList<RecordComponent> recordComponents;
 
         Class(int flags, ClassEntry thisClass, ClassEntry superClass, ClassEntry[] interfaces) {
             this.magic      = JAVA_MAGIC;
@@ -654,6 +660,13 @@ class Package {
                 }
             }
             visitInnerClassRefs(mode, refs);
+            // Include record component CP refs if present.
+            if (recordComponents != null) {
+                for (RecordComponent rc : recordComponents) {
+                    refs.add(rc.name);
+                    refs.add(rc.type);
+                }
+            }
             // Handle attribute list:
             super.visitRefs(mode, refs);
         }
@@ -917,6 +930,19 @@ class Package {
     InnerClass getGlobalInnerClass(Entry thisClass) {
         assert(thisClass instanceof ClassEntry);
         return allInnerClassesByThis.get(thisClass);
+    }
+
+    /** Represents a single record component (name, descriptor) of a Record class.
+     *  Record component sub-attributes are not currently encoded in pack200 bands;
+     *  components with sub-attributes cause the class to be passed through. */
+    static class RecordComponent {
+        final Utf8Entry name;
+        final SignatureEntry type;
+
+        RecordComponent(Utf8Entry name, SignatureEntry type) {
+            this.name = name;
+            this.type = type;
+        }
     }
 
     static

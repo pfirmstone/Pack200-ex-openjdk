@@ -558,6 +558,12 @@ class ClassReader {
                 readInnerClasses(cls);
                 assert(length == inPos - pos0);
                 // Keep empty attribute a...
+            } else if (a.layout() == Package.attrRecordEmpty) {
+                // Record attribute: parse components, keep the marker attr.
+                assert(h == cls);
+                readRecordComponents(cls);
+                assert(length == inPos - pos0);
+                // Keep empty attribute a (marker for ClassWriter)...
             } else if (length > 0) {
                 byte[] bytes = new byte[length];
                 in.readFully(bytes);
@@ -617,6 +623,25 @@ class ClassReader {
         }
         cls.innerClasses = ics;  // set directly; do not use setInnerClasses.
         // (Later, ics may be transferred to the pkg.)
+    }
+
+    void readRecordComponents(Class cls) throws IOException {
+        int nc = readUnsignedShort();
+        ArrayList<Package.RecordComponent> comps = new ArrayList<>(nc);
+        for (int i = 0; i < nc; i++) {
+            Utf8Entry      name = (Utf8Entry)      readRef(CONSTANT_Utf8);
+            SignatureEntry type = (SignatureEntry)  readRef(CONSTANT_Signature);
+            int nAttrs = readUnsignedShort();
+            if (nAttrs > 0) {
+                // Record components with sub-attributes cannot be compressed
+                // natively; pass the entire Record attribute through instead.
+                String message = "Record component sub-attributes are not supported";
+                throw new Attribute.FormatException(message,
+                        ATTR_CONTEXT_CLASS, "Record", "pass");
+            }
+            comps.add(new Package.RecordComponent(name, type));
+        }
+        cls.recordComponents = comps;
     }
 
     static class ClassFormatException extends IOException {

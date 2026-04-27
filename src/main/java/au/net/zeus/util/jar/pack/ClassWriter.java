@@ -251,7 +251,8 @@ class ClassWriter {
             writeRef(a.getNameRef());
             if (a.layout() == Package.attrCodeEmpty ||
                 a.layout() == Package.attrBootstrapMethodsEmpty ||
-                a.layout() == Package.attrInnerClassesEmpty) {
+                a.layout() == Package.attrInnerClassesEmpty ||
+                a.layout() == Package.attrRecordEmpty) {
                 // These are hardwired.
                 DataOutputStream savedOut = out;
                 assert(out != bufOut);
@@ -266,6 +267,9 @@ class ClassWriter {
                 } else if ("InnerClasses".equals(a.name())) {
                     assert(h == cls);
                     writeInnerClasses(cls);
+                } else if ("Record".equals(a.name())) {
+                    assert(h == cls);
+                    writeRecord(cls);
                 } else {
                     throw new AssertionError();
                 }
@@ -320,6 +324,17 @@ class ClassWriter {
             writeRef(ic.outerClass);
             writeRef(ic.name);
             writeShort(ic.flags);
+        }
+    }
+
+    void writeRecord(Class cls) throws IOException {
+        List<Package.RecordComponent> comps = cls.recordComponents;
+        if (comps == null) comps = java.util.Collections.emptyList();
+        writeShort(comps.size());
+        for (Package.RecordComponent rc : comps) {
+            writeRef(rc.name);
+            writeRef(rc.type);
+            writeShort(0);  // attributes_count = 0; sub-attrs stripped during packing
         }
     }
 }

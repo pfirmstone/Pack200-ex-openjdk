@@ -1099,6 +1099,10 @@ class Attribute implements Comparable<Attribute> {
                 case 'B': e.refKind = CONSTANT_BootstrapMethod; break;
                 case 'N': e.refKind = CONSTANT_AnyMember; break;
 
+                // new in Java 9:
+                case 'J': e.refKind = CONSTANT_Module; break;   //module_ref
+                case 'X': e.refKind = CONSTANT_Package; break;  //package_ref
+
                 default: { i = -i; continue; } // fail
                 }
                 break;
