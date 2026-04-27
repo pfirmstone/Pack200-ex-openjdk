@@ -1,0 +1,25 @@
+Manifest-Version: 1.0
+Created-By: 17.0.18 (Eclipse Adoptium)
+Build-Jdk-Spec: 17
+Main-Class: au.net.zeus.util.jar.pack.Driver
+Multi-Release: true
+Bnd-LastModified: 1777298879148
+Bundle-Description: Tool and library to compress and uncompress jar file
+ s using     Pack200.  https://docs.oracle.com/en/java/javase/13/docs/sp
+ ecs/pack-spec.html
+Bundle-ManifestVersion: 2
+Bundle-Name: PACK200-EX-OPENJDK
+Bundle-SymbolicName: Pack200-ex-openjdk
+Bundle-Version: 1.14.0.202604271407
+Export-Package: au.net.zeus.util.jar;version="1.14.0"
+Private-Package: au.net.zeus.util.jar.pack,net.pack200
+Provide-Capability: osgi.service;objectClass:List<String>="net.pack200.P
+ ack200$Packer";uses:="net.pack200",osgi.service;objectClass:List<String
+ >="net.pack200.Pack200$Unpacker";uses:="net.pack200"
+Require-Capability: osgi.extender;filter:="(&(osgi.extender=osgi.compone
+ nt)(version>=1.5.0)(!(version>=2.0.0)))",osgi.ee;filter:="(&(osgi.ee=Ja
+ vaSE)(version=1.8))"
+Service-Component: OSGI-INF/au.net.zeus.util.jar.pack.PackerImpl.xml,OSG
+ I-INF/au.net.zeus.util.jar.pack.UnpackerImpl.xml
+Tool: Bnd-6.4.0.202211291949
+

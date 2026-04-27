@@ -1,3 +1,4 @@
 -exportcontents: \
     au.net.zeus.util.jar
 -sources: true
+-multiRelease: true
