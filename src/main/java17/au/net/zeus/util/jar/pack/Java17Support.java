@@ -98,10 +98,10 @@ public class Java17Support {
     }
 
     /**
-     * Returns the maximum package version supported by this Java 17+ runtime.
-     * @return "240.0" (Java 27 package version)
+     * Returns the Java 17 pack200 package version.
+     * @return "210.0" (Java 17 package version)
      */
     public static String getMaxPackageVersion() {
-        return Constants.MAX_PACKAGE_VERSION.toString();
+        return Constants.JAVA17_PACKAGE_VERSION.toString();
     }
 }
