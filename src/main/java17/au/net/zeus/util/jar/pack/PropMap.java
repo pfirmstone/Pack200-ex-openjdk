@@ -29,6 +29,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -122,7 +124,9 @@ final class PropMap implements SortedMap<String, String>  {
         // to allow override if necessary.
         String propFile = "intrinsic.properties";
 
-        try (InputStream propStr = PackerImpl.class.getResourceAsStream(propFile)) {
+        PrivilegedAction<InputStream> pa =
+            () -> PackerImpl.class.getResourceAsStream(propFile);
+        try (InputStream propStr = AccessController.doPrivileged(pa)) {
             if (propStr == null) {
                 throw new RuntimeException(propFile + " cannot be loaded");
             }
@@ -145,8 +149,8 @@ final class PropMap implements SortedMap<String, String>  {
     }
 
     private static String getPropertyValue(String key, String defaultValue) {
-        // AccessController.doPrivileged is not needed on Java 17+
-        String s = System.getProperty(key);
+        PrivilegedAction<String> pa = () -> System.getProperty(key);
+        String s = AccessController.doPrivileged(pa);
         return s != null ? s : defaultValue;
     }
 

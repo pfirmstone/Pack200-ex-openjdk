@@ -29,6 +29,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.EventListener;
 import java.util.jar.JarFile;
 import java.util.jar.JarInputStream;
@@ -798,9 +800,10 @@ public abstract class Pack200 {
     private static class GetPropertyAction {
 
         private static String privilegedGetProperty(final String prop, final String string) {
-            // AccessController.doPrivileged is not needed on Java 17+
-            return System.getProperty(prop, string);
-        }
+            return AccessController.doPrivileged(
+                (PrivilegedAction<String>) () -> System.getProperty(prop, string)
+            );
+}
 
     }
 
