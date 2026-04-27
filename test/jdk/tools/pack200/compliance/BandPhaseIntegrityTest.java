@@ -125,8 +125,8 @@ public class BandPhaseIntegrityTest {
         configFile.delete();  // overwrite if left from a previous sub-test
         Utils.createFile(configFile, config);
 
-        // disableNative=true forces the Java unpacker (which respects debug.bands)
-        Utils.repack(in, out, true /* disableNative */,
+        // band debugging works with the unpacker (always used)
+        Utils.repack(in, out,
                 "-v", "--config-file=" + configFile.getName());
     }
 }

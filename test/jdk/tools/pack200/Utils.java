@@ -385,27 +385,16 @@ class Utils {
 
     static void testWithRepack(File inFile, String... repackOpts) throws IOException {
         File cwd = new File(".");
-        // pack using --repack in native mode
-        File nativejarFile = new File(cwd, "out-n" + Utils.JAR_FILE_EXT);
-        repack(inFile, nativejarFile, false, repackOpts);
-        doCompareVerify(inFile, nativejarFile);
-
-        // ensure bit compatibility between the unpacker variants
-        File javajarFile = new File(cwd, "out-j" + Utils.JAR_FILE_EXT);
-        repack(inFile, javajarFile, true, repackOpts);
-        doCompareBitWise(javajarFile, nativejarFile);
+        File outjarFile = new File(cwd, "out" + Utils.JAR_FILE_EXT);
+        repack(inFile, outjarFile, repackOpts);
+        doCompareVerify(inFile, outjarFile);
     }
 
-    static List<String> repack(File inFile, File outFile,
-            boolean disableNative, String... extraOpts) {
+    static List<String> repack(File inFile, File outFile, String... extraOpts) {
         List<String> cmdList = new ArrayList<>();
-        cmdList.clear();
         cmdList.add(Utils.getJavaCmd());
         cmdList.add("-ea");
         cmdList.add("-esa");
-        if (disableNative) {
-            cmdList.add("-Dau.net.zeus.util.jar.pack.disable.native=true");
-        }
         cmdList.add("au.net.zeus.util.jar.pack.Driver");
         cmdList.add("--repack");
         if (extraOpts != null) {
@@ -441,28 +430,10 @@ class Utils {
         }
     }
 
-    // uses java unpacker, slow but useful to discover issues with the packer
-    static void unpackj(File inFile, JarOutputStream jarStream)
-            throws IOException {
-        unpack0(inFile, jarStream, true);
-
-    }
-
-    // uses native unpacker using the java APIs
-    static void unpackn(File inFile, JarOutputStream jarStream)
-            throws IOException {
-        unpack0(inFile, jarStream, false);
-    }
-
     // given a packed file, create the jar file in the current directory.
-    private static void unpack0(File inFile, JarOutputStream jarStream,
-            boolean useJavaUnpack) throws IOException {
-        // Unpack the files
+    static void unpack(File inFile, JarOutputStream jarStream)
+            throws IOException {
         Pack200.Unpacker unpacker = Pack200.newUnpacker();
-        Map<String, String> props = unpacker.properties();
-        if (useJavaUnpack) {
-            props.put("au.net.zeus.util.jar.pack.disable.native", "true");
-        }
         // Call the unpacker
         unpacker.unpack(inFile, jarStream);
     }

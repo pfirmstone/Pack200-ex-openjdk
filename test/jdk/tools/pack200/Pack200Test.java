@@ -89,17 +89,17 @@ public class Pack200Test {
                 System.out.println("Start leak check");
                 leakCheck();
 
-                System.out.println("  Unpacking using java unpacker");
-                File javaUnpackedJar = new File("java-" + in.getName());
+                System.out.println("  Unpacking...");
+                File unpackedJar = new File("unpacked-" + in.getName());
                 // Write out to current directory, jtreg will setup a scratch area
                 javaUnpackerStream = new JarOutputStream(
-                        new FileOutputStream(javaUnpackedJar));
-                Utils.unpackj(packFile, javaUnpackerStream);
+                        new FileOutputStream(unpackedJar));
+                Utils.unpack(packFile, javaUnpackerStream);
                 javaUnpackerStream.close();
-                System.out.println("  Testing...java unpacker");
+                System.out.println("  Testing...");
                 leakCheck();
                 // Ok we have unpacked the file, lets test it.
-                Utils.doCompareVerify(in.getAbsoluteFile(), javaUnpackedJar);
+                Utils.doCompareVerify(in.getAbsoluteFile(), unpackedJar);
                 System.out.println("Done.");
             } catch (Exception e) {
                 throw new RuntimeException(e);

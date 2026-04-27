@@ -120,7 +120,7 @@ public class TimeStamp {
             TimeZone.setDefault(TimeZone.getTimeZone(tzname));
             jos = new JarOutputStream(new FileOutputStream(outFile));
             System.out.println("Using timezone: " + TimeZone.getDefault());
-            Utils.unpackj(packFile, jos);
+            Utils.unpack(packFile, jos);
         } finally {
             Utils.close(jos);
             TimeZone.setDefault(tz); // always reset
