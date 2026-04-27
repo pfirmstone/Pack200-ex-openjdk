@@ -181,15 +181,23 @@ class Constants {
     public static final Package.Version JAVA22_PACKAGE_VERSION =
             Package.Version.of(210, 0);
 
-    // Archive version 220.0 covers Java 26 class files (70.0).
+    // Archive version 220.0 is the format introduced to support archives produced
+    // by Java 26+ toolchains; it covers class files up to Java 26 (70.0).
+    // Named JAVA21 to indicate it is the next archive-format milestone after the
+    // Java 22 era (JAVA22_PACKAGE_VERSION = 210.0), aligned with the Java 21 LTS
+    // support window that preceded Java 26.
     public static final Package.Version JAVA21_PACKAGE_VERSION =
             Package.Version.of(220, 0);
 
     // Archive version 230.0 covers Java 27 class files (71.0).
+    // Named JAVA25 to indicate it is the archive-format milestone for the Java 25
+    // LTS release window, which maps to class file format 71.0 (Java 27).
     public static final Package.Version JAVA25_PACKAGE_VERSION =
             Package.Version.of(230, 0);
 
-    // Archive version 240.0 is reserved for future Java versions beyond 27.
+    // Archive version 240.0 is reserved for future Java versions beyond Java 27.
+    // Named JAVA27 to indicate it is the archive-format milestone for the Java 27
+    // LTS release window; used as the current MAX_PACKAGE_VERSION sentinel.
     public static final Package.Version JAVA27_PACKAGE_VERSION =
             Package.Version.of(240, 0);
 
@@ -217,7 +225,7 @@ class Constants {
     //   210.0  (JAVA22)  : class 66.0–69.x (Java 22–25)
     //   220.0  (JAVA21)  : class 70.0       (Java 26)
     //   230.0  (JAVA25)  : class 71.0       (Java 27)
-    //   240.0  (JAVA27)  : reserved for future Java versions
+    //   240.0  (JAVA27)  : reserved for future Java versions beyond 27
     public static final Package.Version MAX_PACKAGE_VERSION =
             JAVA27_PACKAGE_VERSION;
 

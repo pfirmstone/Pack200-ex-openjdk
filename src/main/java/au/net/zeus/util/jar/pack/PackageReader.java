@@ -339,7 +339,8 @@ class PackageReader extends BandStructure {
                     + ". New structural features in this archive may not be"
                     + " decoded correctly.");
         } else if (packageVersion.greaterThan(JAVA25_PACKAGE_VERSION)) {
-            // 240.0 (JAVA27): reserved for future Java versions beyond 27
+            // 240.0 (JAVA27): reserved for future Java versions beyond Java 27;
+            // accept up to the highest known class-file version.
             maxClassVer = JAVA_MAX_CLASS_VERSION;
         } else if (packageVersion.greaterThan(JAVA21_PACKAGE_VERSION)) {
             // 230.0 (JAVA25): class 71.0 (Java 27)
