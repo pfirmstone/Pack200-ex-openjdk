@@ -336,7 +336,7 @@ public class RoundTripSemanticVerify {
                         skip(8);
                         i++;
                         break;
-                    case 7: case 8: case 16: case 19: case 20: // Class/String/MethodType/Module/Package
+                    case 7: case 8: case 16: case 19: case 20: // Class(7), String(8), MethodType(16), Module(19), Package(20)
                         skip(2);
                         break;
                     case 9: case 10: case 11: case 12: // Fieldref/Methodref/InterfaceMethodref/NameAndType
