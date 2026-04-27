@@ -265,34 +265,24 @@ class PackageReader extends BandStructure {
 
      // Fixed 6211177, converted to throw IOException
     void checkArchiveVersion() throws IOException {
-        Package.Version versionFound = null;
-        for (Package.Version v : new Package.Version[] {
-                JAVA11_PACKAGE_VERSION,
-                JAVA9_PACKAGE_VERSION,
-                JAVA8_PACKAGE_VERSION,
-                JAVA7_PACKAGE_VERSION,
-                JAVA6_PACKAGE_VERSION,
-                JAVA5_PACKAGE_VERSION
-            }) {
-            if (packageVersion.equals(v)) {
-                versionFound = v;
-                break;
-            }
-        }
-        if (versionFound == null) {
-            String expVer = JAVA11_PACKAGE_VERSION.toString()
-                            + " OR "
-                            + JAVA9_PACKAGE_VERSION.toString()
-                            + " OR "
-                            + JAVA8_PACKAGE_VERSION.toString()
-                            + " OR "
-                            + JAVA7_PACKAGE_VERSION.toString()
-                            + " OR "
-                            + JAVA6_PACKAGE_VERSION.toString()
-                            + " OR "
-                            + JAVA5_PACKAGE_VERSION.toString();
+        // Accept any archive version in the closed range [JAVA5_PACKAGE_VERSION,
+        // MAX_PACKAGE_VERSION].  Versions strictly greater than MAX_PACKAGE_VERSION
+        // are produced by a newer tool; we log a warning and attempt to continue so
+        // that a reader upgrade is recommended rather than causing an immediate hard
+        // failure for archives that only use features the current reader understands.
+        if (packageVersion.lessThan(JAVA5_PACKAGE_VERSION)) {
             throw new IOException("Unexpected package minor version: got "
-                    +  packageVersion.toString() + "; expected " + expVer);
+                    + packageVersion.toString()
+                    + "; minimum supported version is " + JAVA5_PACKAGE_VERSION.toString());
+        }
+        if (packageVersion.greaterThan(MAX_PACKAGE_VERSION)) {
+            // Forward-compatibility: warn but do not fail.  The caller will
+            // proceed and may encounter a hard error later if the archive uses
+            // features that this reader does not understand.
+            Utils.log.warning("Unrecognised archive version " + packageVersion.toString()
+                    + " (maximum known version is " + MAX_PACKAGE_VERSION.toString()
+                    + "). This archive was produced by a newer tool; unpacking may"
+                    + " succeed if no unsupported features are present.");
         }
     }
 
@@ -331,12 +321,37 @@ class PackageReader extends BandStructure {
         packageVersion = Package.Version.of(majver, minver);
         checkArchiveVersion();
         // Set the highest class version based on the archive's package version.
+        // Each new archive version bracket maps to the ceiling class-file version
+        // that was current when that archive version was defined.
         Package.Version maxClassVer;
-        if (packageVersion.greaterThan(JAVA9_PACKAGE_VERSION)) {
+        if (packageVersion.greaterThan(JAVA22_PACKAGE_VERSION)) {
+            // Unknown future version: permit the highest class version we know
+            // about and attempt to proceed.  checkArchiveVersion() has already
+            // emitted a forward-compatibility warning.  Structural features
+            // introduced in future archive versions (new CP tags, new header
+            // option bits, etc.) may not be decoded correctly by this reader;
+            // any hard failure caused by such incompatibilities will surface
+            // later during band reading or CP reconstruction.
+            maxClassVer = JAVA_MAX_CLASS_VERSION;
+            Utils.log.warning("Unknown archive version " + packageVersion.toString()
+                    + ": capping accepted class-file version at "
+                    + maxClassVer.toString()
+                    + ". New structural features in this archive may not be"
+                    + " decoded correctly.");
+        } else if (packageVersion.greaterThan(JAVA18_PACKAGE_VERSION)) {
+            // 210.0 (JAVA22): class 66.0–69.x (Java 22–25)
+            maxClassVer = JAVA25_MAX_CLASS_VERSION;
+        } else if (packageVersion.greaterThan(JAVA17_PACKAGE_VERSION)) {
+            // 200.0 (JAVA18): class 62.0–65.x (Java 18–21)
+            maxClassVer = JAVA21_MAX_CLASS_VERSION;
+        } else if (packageVersion.greaterThan(JAVA9_PACKAGE_VERSION)) {
+            // 190.0 (JAVA11) and 190.1 (JAVA17): class 55.0–61.x
             maxClassVer = JAVA17_MAX_CLASS_VERSION;
         } else if (packageVersion.greaterThan(JAVA8_PACKAGE_VERSION)) {
+            // 180.0 (JAVA9): class 53.0–54.x
             maxClassVer = JAVA9_MAX_CLASS_VERSION;
         } else {
+            // 150.7 (JAVA5) through 171.0 (JAVA8): class ≤ 52.x
             maxClassVer = JAVA7_MAX_CLASS_VERSION;
         }
         this.initHighestClassVersion(maxClassVer);
