@@ -629,8 +629,8 @@ class ClassReader {
         int nc = readUnsignedShort();
         ArrayList<Package.RecordComponent> comps = new ArrayList<>(nc);
         for (int i = 0; i < nc; i++) {
-            Utf8Entry      name = (Utf8Entry)      readRef(CONSTANT_Utf8);
-            SignatureEntry type = (SignatureEntry)  readRef(CONSTANT_Signature);
+            Utf8Entry      name = readUtf8Ref();
+            SignatureEntry type = readSignatureRef(); // descriptor stored as Utf8 in class file
             int nAttrs = readUnsignedShort();
             if (nAttrs > 0) {
                 // Record components with sub-attributes cannot be compressed

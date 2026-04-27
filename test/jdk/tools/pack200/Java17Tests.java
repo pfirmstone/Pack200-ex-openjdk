@@ -31,7 +31,8 @@ import java.util.List;
  * @summary Tests pack/unpack round-trip for Java 17 class files (major version 61),
  *          exercising records (Record attribute), sealed classes
  *          (PermittedSubclasses attribute), and lambdas (BootstrapMethods /
- *          invokedynamic).
+ *          invokedynamic).  These attributes are now compressed natively by the
+ *          pack200 implementation (no --unknown-attribute=pass required).
  * @compile -XDignore.symbol.file Utils.java Java17Tests.java
  * @run main Java17Tests
  */
@@ -47,7 +48,7 @@ public class Java17Tests {
 
     /**
      * Baseline: a plain class compiled to Java 17 (version 61.0) is packed
-     * and unpacked without error.
+     * and unpacked without error.  No --unknown-attribute=pass is needed.
      */
     static void testSimpleClassAtVersion61() throws Exception {
         List<String> src = new ArrayList<String>();
@@ -60,13 +61,14 @@ public class Java17Tests {
 
         File jarFile = new File("simple17.jar");
         Utils.jar("cvf", jarFile.getName(), "Hello17.class");
-        Utils.testWithRepack(jarFile, "--unknown-attribute=pass");
+        Utils.testWithRepack(jarFile);
         System.out.println("testSimpleClassAtVersion61: PASS");
     }
 
     /**
      * Record class compiled to Java 17: the class file carries a {@code Record}
-     * attribute.  Verifies that pack/unpack preserves the attribute unchanged.
+     * attribute.  Verifies that pack/unpack preserves the attribute unchanged
+     * using native band compression (no --unknown-attribute=pass).
      */
     static void testRecordAtVersion61() throws Exception {
         List<String> src = new ArrayList<String>();
@@ -81,14 +83,15 @@ public class Java17Tests {
 
         File jarFile = new File("record17.jar");
         Utils.jar("cvf", jarFile.getName(), "Point.class");
-        Utils.testWithRepack(jarFile, "--unknown-attribute=pass");
+        Utils.testWithRepack(jarFile);
         System.out.println("testRecordAtVersion61: PASS");
     }
 
     /**
      * Sealed-class hierarchy compiled to Java 17: {@code Shape.class} carries a
      * {@code PermittedSubclasses} attribute listing {@code Circle} and
-     * {@code Rectangle}.  Verifies that pack/unpack preserves the attribute.
+     * {@code Rectangle}.  Verifies that pack/unpack preserves the attribute
+     * using native band compression (no --unknown-attribute=pass).
      */
     static void testSealedClassAtVersion61() throws Exception {
         File outDir = new File("sealed17");
@@ -123,7 +126,7 @@ public class Java17Tests {
 
         File jarFile = new File("sealed17.jar");
         Utils.jar("cvf", jarFile.getName(), "-C", outDir.getName(), ".");
-        Utils.testWithRepack(jarFile, "--unknown-attribute=pass");
+        Utils.testWithRepack(jarFile);
         System.out.println("testSealedClassAtVersion61: PASS");
     }
 
@@ -131,7 +134,8 @@ public class Java17Tests {
      * Class using a lambda expression compiled to Java 17: the class file
      * carries a {@code BootstrapMethods} attribute and an {@code invokedynamic}
      * instruction backed by {@code LambdaMetafactory}.  Verifies that pack/unpack
-     * preserves the bootstrap-method entries correctly.
+     * preserves the bootstrap-method entries correctly.  NestHost/NestMembers
+     * attributes are now compressed natively (no --unknown-attribute=pass).
      */
     static void testLambdaAtVersion61() throws Exception {
         List<String> src = new ArrayList<String>();
@@ -151,7 +155,7 @@ public class Java17Tests {
         // may have generated (e.g. Lambda17$1.class).
         File jarFile = new File("lambda17.jar");
         Utils.jar("cvf", jarFile.getName(), ".");
-        Utils.testWithRepack(jarFile, "--unknown-attribute=pass");
+        Utils.testWithRepack(jarFile);
         System.out.println("testLambdaAtVersion61: PASS");
     }
 }

@@ -1584,7 +1584,8 @@ class BandStructure {
     CPRefBand class_NestMembers_RC = class_attr_bands.newCPRefBand("class_NestMembers_RC", CONSTANT_Class);
 
     // bands for predefined Module attribute (Java 9+, index 29)
-    // Layout: "RJHHRURNH[RJHHRUNH]NH[RXHHNH[RJH]]NH[RXHHNH[RJH]]NH[RCH]NH[RCHNH[RCH]]"
+    // Layout: "RJHHRUNH NH[RJHHRUNH] NH[RXHHNH[RJH]] NH[RXHHNH[RJH]] NH[RCH] NH[RCHNH[RCH]]"
+    //   (spaces added for readability; concatenated layout below)
     MultiBand class_Module_bands = class_attr_bands.newMultiBand("(class_Module_bands)", UNSIGNED5);
     CPRefBand class_Module_MN    = class_Module_bands.newCPRefBand("class_Module_MN",    CONSTANT_Module);
     IntBand   class_Module_MF    = class_Module_bands.newIntBand("class_Module_MF");
@@ -1875,7 +1876,7 @@ class BandStructure {
         predefineAttribute(CLASS_ATTR_Module, ATTR_CONTEXT_CLASS,
                            class_Module_bands.toArray(),
                            "Module",
-                           "RJHHRURNH[RJHHRUNH]NH[RXHHNH[RJH]]NH[RXHHNH[RJH]]NH[RCH]NH[RCHNH[RCH]]");
+                           "RJHHRUNH NH[RJHHRUNH] NH[RXHHNH[RJH]] NH[RXHHNH[RJH]] NH[RCH] NH[RCHNH[RCH]]".replace(" ", ""));
         predefineAttribute(CLASS_ATTR_ModulePackages, ATTR_CONTEXT_CLASS,
                            new Band[] { class_ModulePackages_N, class_ModulePackages_PN },
                            "ModulePackages", "NH[RXH]");
@@ -2040,6 +2041,10 @@ class BandStructure {
         // Register higher-index predefined attrs (32+) for the class context.
         if (haveFlagsHi(ATTR_CONTEXT_CLASS)) {
             initHigherClassAttrDefs();
+            // Predefined attrs must not appear in the attr_definition bands.
+            // Clear the bits set by predefineAttribute for the new higher indices.
+            attrDefSeen[ATTR_CONTEXT_CLASS] &= ~((1L << CLASS_ATTR_Record)
+                                                 | (1L << CLASS_ATTR_PermittedSubclasses));
         }
     }
 
