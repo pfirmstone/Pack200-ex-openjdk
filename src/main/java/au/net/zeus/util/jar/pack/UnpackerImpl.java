@@ -212,6 +212,10 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
                 props.list(System.out);
             }
             for (int seg = 1; ; seg++) {
+                if (seg > PackageReader.MAX_SEGMENT_COUNT)
+                    throw new IOException(
+                            "Too many pack200 segments (limit " +
+                            PackageReader.MAX_SEGMENT_COUNT + ")");
                 unpackSegment(in, out);
 
                 // Try to get another segment.
