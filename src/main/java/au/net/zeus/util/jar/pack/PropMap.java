@@ -392,14 +392,14 @@ final class PropMap implements SortedMap<String, String>  {
             if (doPrivileged != null) {
                 try {
                     return (T) doPrivileged.invoke(null, action);
-                } catch (IllegalAccessException x) {
-                    throw new AssertionError(x);
                 } catch (InvocationTargetException x) {
                     Throwable cause = x.getCause();
                     if (cause instanceof Error)
                         throw (Error) cause;
                     if (cause instanceof RuntimeException)
                         throw (RuntimeException) cause;
+                    throw new AssertionError(x);
+                } catch (IllegalAccessException x) {
                     throw new AssertionError(x);
                 }
             }
