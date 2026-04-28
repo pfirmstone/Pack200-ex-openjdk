@@ -29,7 +29,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
-import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -126,7 +125,7 @@ final class PropMap implements SortedMap<String, String>  {
 
         PrivilegedAction<InputStream> pa =
             () -> PackerImpl.class.getResourceAsStream(propFile);
-        try (InputStream propStr = AccessController.doPrivileged(pa)) {
+        try (InputStream propStr = DoPrivilegedHelper.run(pa)) {
             if (propStr == null) {
                 throw new RuntimeException(propFile + " cannot be loaded");
             }
@@ -150,7 +149,7 @@ final class PropMap implements SortedMap<String, String>  {
 
     private static String getPropertyValue(String key, String defaultValue) {
         PrivilegedAction<String> pa = () -> System.getProperty(key);
-        String s = AccessController.doPrivileged(pa);
+        String s = DoPrivilegedHelper.run(pa);
         return s != null ? s : defaultValue;
     }
 
@@ -349,6 +348,65 @@ final class PropMap implements SortedMap<String, String>  {
        return theMap.lastKey();
     }
     
+    /**
+     * Reflective shim for {@code AccessController.doPrivileged}.
+     *
+     * <p>On JVMs where {@code java.security.AccessController} is present
+     * (Java 8 through at least Java 24, including DirtyChai builds that
+     * preserve the Security Manager API), the action is executed under
+     * access-controller privilege escalation via reflection.
+     *
+     * <p>On future JVMs where {@code AccessController} has been removed,
+     * the method reference will be {@code null} and the action is executed
+     * directly via {@link PrivilegedAction#run()}.
+     *
+     * <p>This pattern mirrors the existing {@link Beans} helper in this class,
+     * which uses the same technique to handle the optional {@code java.beans}
+     * dependency.
+     */
+    private static final class DoPrivilegedHelper {
+        /**
+         * {@code AccessController.doPrivileged(PrivilegedAction)} method, or
+         * {@code null} if the class has been removed from the JVM.
+         */
+        private static final Method doPrivileged;
+
+        static {
+            Method m = null;
+            try {
+                Class<?> ac = Class.forName("java.security.AccessController",
+                        true, DoPrivilegedHelper.class.getClassLoader());
+                m = ac.getMethod("doPrivileged", PrivilegedAction.class);
+            } catch (ClassNotFoundException | NoSuchMethodException ignored) {
+                // AccessController has been removed; fall back to direct invocation.
+            }
+            doPrivileged = m;
+        }
+
+        /**
+         * Runs {@code action} via {@code AccessController.doPrivileged} if
+         * available, otherwise runs it directly.
+         */
+        @SuppressWarnings("unchecked")
+        static <T> T run(PrivilegedAction<T> action) {
+            if (doPrivileged != null) {
+                try {
+                    return (T) doPrivileged.invoke(null, action);
+                } catch (IllegalAccessException x) {
+                    throw new AssertionError(x);
+                } catch (InvocationTargetException x) {
+                    Throwable cause = x.getCause();
+                    if (cause instanceof Error)
+                        throw (Error) cause;
+                    if (cause instanceof RuntimeException)
+                        throw (RuntimeException) cause;
+                    throw new AssertionError(x);
+                }
+            }
+            return action.run();
+        }
+    }
+
     /**
      * A class that provides access to the java.beans.PropertyChangeListener
      * and java.beans.PropertyChangeEvent without creating a static dependency

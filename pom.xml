@@ -163,17 +163,10 @@
                                     <compilerarg value="--patch-module"/>
                                     <compilerarg value="au.net.zeus.util.jar.pack=${project.build.outputDirectory}"/>
                                 </javac>
-                                <!-- Java 17: compile AccessController-free Pack200 and PropMap -->
+                                <!-- Java 17: slot reserved for future Java-17+-specific overrides.
+                                     The AccessController shim now lives in the base (Java 8) classes,
+                                     so no java17-specific sources are currently needed. -->
                                 <mkdir dir="${project.build.directory}/java17"/>
-                                <javac srcdir="${basedir}/src/main/java17"
-                                       destdir="${project.build.directory}/java17"
-                                       classpath="${project.build.outputDirectory}"
-                                       includeantruntime="false">
-                                    <compilerarg value="--release"/>
-                                    <compilerarg value="17"/>
-                                    <compilerarg value="--patch-module"/>
-                                    <compilerarg value="au.net.zeus.util.jar.pack=${project.build.outputDirectory}"/>
-                                </javac>
                             </target>
                         </configuration>
                     </execution>
