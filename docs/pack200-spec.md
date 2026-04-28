@@ -4,7 +4,7 @@
 
 Pack200-ex-openjdk is an extension of the JSR-200 Pack200 format originally defined
 for Java 5–8. It adds **native band-compression** support for class-file attributes
-introduced in Java 9 through Java 17, and defines new archive-format version-negotiation
+introduced in Java 9 through Java 27, and defines new archive-format version-negotiation
 rules for those class versions.
 
 The format remains backward-compatible with the original JSR-200 specification (archive
@@ -12,13 +12,19 @@ magic `0xCAFED00D`). Implementations that do not recognise the new package versi
 (≥ 180.0) will treat archives produced with them as unknown, which is the intended
 behaviour.
 
+The implementation JAR is a **Multi-Release JAR** (MRJAR) as defined by JEP 238. The
+base class files target Java 8. `META-INF/versions/9/` adds a JPMS module descriptor.
+`META-INF/versions/17/` carries Java-17-compiled class files; `AccessController.doPrivileged()`
+is retained in those files and will be removed only when a future JEP formally
+removes the API.
+
 ---
 
 ## 2. Archive Format Versions
 
 A Pack200 archive begins with a 4-byte magic (`CA FE D0 0D`) followed by one
 UNSIGNED5-encoded value for the minor version and one for the major version of the
-archive format (the "package version"). Both values are small enough (≤ 191) to fit in a
+archive format (the "package version"). Both values are small enough (≤ 220) to fit in a
 single UNSIGNED5 byte.
 
 | Package Version | Symbolic Name           | Class Versions Covered                                     | New Capability Added                                                |
@@ -28,7 +34,11 @@ single UNSIGNED5 byte.
 | 170.1           | JAVA7_PACKAGE_VERSION   | 51 (Java 7) with InvokeDynamic                            | Adds invokedynamic, CONSTANT_MethodHandle, CONSTANT_MethodType      |
 | 171.0           | JAVA8_PACKAGE_VERSION   | 52 (Java 8), no Module/Dynamic CP entries                 | Adds MethodParameters, type annotations                             |
 | 180.0           | JAVA9_PACKAGE_VERSION   | 53–54 (Java 9–10), or archives with Module/Package CP     | Adds CONSTANT_Dynamic, CONSTANT_Module, CONSTANT_Package; Module/ModulePackages/ModuleMainClass/NestHost/NestMembers |
-| 190.0           | JAVA11_PACKAGE_VERSION  | 55+ (Java 11+)                                             | Adds Record, PermittedSubclasses                                    |
+| 190.0           | JAVA11_PACKAGE_VERSION  | 55–54 (Java 11–16)                                        | (same capability set; upper bound raised)                           |
+| 190.1           | JAVA17_PACKAGE_VERSION  | 55–61 (Java 11–17)                                        | Adds Record, PermittedSubclasses                                    |
+| 200.0           | JAVA18_PACKAGE_VERSION  | 62–65 (Java 18–21)                                        | Upper bound raised to cover Java 18–21 class files                  |
+| 210.0           | JAVA22_PACKAGE_VERSION  | 66–69 (Java 22–25)                                        | Upper bound raised to cover Java 22–25 class files                  |
+| 220.0           | JAVA26_PACKAGE_VERSION  | 70–71 (Java 26–27)                                        | Upper bound raised to cover Java 26–27 class files                  |
 
 ### 2.1 Version Selection Rule (Packer)
 
@@ -40,12 +50,20 @@ The packer selects the **lowest** package version sufficient to encode all conte
 4. Highest class version = 51.0 with InvokeDynamic → **170.1**
 5. Highest class version ≤ 52.0 and no Module/Dynamic CP entries → **171.0**
 6. Highest class version ≤ 54.0, **or** any CONSTANT_Module/CONSTANT_Package/CONSTANT_Dynamic CP entry present → **180.0**
-7. Highest class version ≥ 55.0 → **190.0**
+7. Highest class version ≤ 61.0 (Java 11–17) → **190.1**
+8. Highest class version ≤ 65.0 (Java 18–21) → **200.0**
+9. Highest class version ≤ 69.0 (Java 22–25) → **210.0**
+10. Highest class version ≤ 71.0 (Java 26–27) → **220.0**
 
 ### 2.2 Version Acceptance Rule (Unpacker)
 
-An unpacker MUST reject any archive whose package version is not in the supported set:
-`{150.7, 160.1, 170.1, 171.0, 180.0, 190.0}`.
+An unpacker MUST accept any archive whose package version is in the supported set:
+`{150.7, 160.1, 170.1, 171.0, 180.0, 190.0, 190.1, 200.0, 210.0, 220.0}`.
+
+For an archive with an **unknown** package version (greater than `220.0`), the unpacker
+SHOULD emit a forward-compatibility warning and attempt decoding up to the highest
+class-file version it understands, rather than hard-failing. New structural features in
+such archives (new CP tags, new header option bits, etc.) may not decode correctly.
 
 ---
 
@@ -109,6 +127,9 @@ This means:
 | 171   | `[AB]` |
 | 180   | `[B4]` |
 | 190   | `[BE]` |
+| 200   | `[C8]` |
+| 210   | `[D2]` |
+| 220   | `[DC]` |
 | 512   | `[C0, 05]` (= 192 + 0, then 5; since 192 + 5×64 = 512) |
 | 8192  | `[C0, 7D]` (= 192 + 0, then 125; since 192 + 125×64 = 8192) |
 
@@ -367,7 +388,7 @@ An implementation is **conformant** if and only if all of the following hold.
 
 ### 10.1 Packer (Encoder)
 
-Given a JAR containing `.class` files with major versions 45–61 (Java 1–17) and
+Given a JAR containing `.class` files with major versions 45–71 (Java 1–27) and
 optionally `module-info.class` files:
 
 1. The produced archive begins with magic `CA FE D0 0D`.
@@ -387,7 +408,10 @@ Given a conformant archive:
    constant pool entries and all listed attributes (§7) round-trip without loss. CP index
    ordering may differ (the JVM format does not mandate a particular CP order), but all
    referenced names, types, and values MUST be identical.
-2. The unpacker MUST reject archives with package versions not in the supported set.
+2. The unpacker MUST accept all archives with package versions in the supported set
+   `{150.7, 160.1, 170.1, 171.0, 180.0, 190.0, 190.1, 200.0, 210.0, 220.0}`.
+3. The unpacker SHOULD attempt to decode archives with unknown future package versions
+   (> 220.0) with a forward-compatibility warning, rather than hard-failing.
 
 ### 10.3 Unknown Attributes
 
@@ -402,7 +426,67 @@ Class files containing attributes not listed in §7 and not declared via
 
 ---
 
-## 11. Band Phase Lifecycle
+## 11. Multi-Release JAR Deployment
+
+The implementation is distributed as a **Multi-Release JAR** (MRJAR, JEP 238) with the
+following layer structure:
+
+```
+(root)/                           Java 8 base classes (--release 8)
+META-INF/
+  MANIFEST.MF                     Multi-Release: true
+  versions/
+    9/
+      module-info.class           JPMS module descriptor (--release 9)
+    17/
+      net/pack200/Pack200.class           Java-17-compiled (AccessController retained)
+      au/net/zeus/util/jar/pack/
+        PropMap.class                     Java-17-compiled (AccessController retained)
+```
+
+### 11.1 JPMS Module Descriptor (Java 9+)
+
+The `module-info.class` at `META-INF/versions/9/` declares the named module
+`au.net.zeus.util.jar.pack`:
+
+- **Exports** `net.pack200` — the public Pack200 API. The implementation package
+  `au.net.zeus.util.jar.pack` is **not** exported.
+- **Requires** `java.logging` — used for diagnostics throughout the implementation.
+- **Requires static** `java.desktop` — `java.beans.PropertyChangeListener` and
+  `java.beans.PropertyChangeEvent` are accessed optionally via reflection in
+  `PropMap.Beans`; the `static` qualifier allows the module to load on runtimes without
+  `java.desktop`.
+- **Provides** `net.pack200.Pack200.Packer` **with** `au.net.zeus.util.jar.pack.PackerImpl`
+- **Provides** `net.pack200.Pack200.Unpacker` **with** `au.net.zeus.util.jar.pack.UnpackerImpl`
+
+The `provides` declarations enable callers that use `ServiceLoader` to obtain
+`Packer`/`Unpacker` instances without depending on internal class names.
+
+### 11.2 Java 17+ Class Files
+
+The class files at `META-INF/versions/17/` are compiled with `--release 17`.
+`java.security.AccessController.doPrivileged()` is **retained** in these class files —
+the same way it appears in the Java 8 base classes — and will only be removed when a
+future JEP formally eliminates the API from the platform:
+
+| Class | Status |
+|-------|--------|
+| `net.pack200.Pack200` | `GetPropertyAction.privilegedGetProperty()` continues to use `AccessController.doPrivileged()` |
+| `au.net.zeus.util.jar.pack.PropMap` | Static initializer and `getPropertyValue()` continue to use `AccessController.doPrivileged()` |
+
+### 11.3 Build
+
+Versioned sources are compiled during the `compile` phase using `maven-antrun-plugin`
+with `javac --release N --patch-module au.net.zeus.util.jar.pack=target/classes` to
+staging directories (`target/java9/`, `target/java17/`). This keeps `target/classes/`
+clean during `bnd-process` (OSGi metadata generation). A `maven-resources-plugin`
+execution in `prepare-package` copies the staged class files into
+`target/classes/META-INF/versions/N/`. The manifest entry `Multi-Release: true` is added
+by `maven-jar-plugin`; `bnd.bnd` carries `-multiRelease: true` for OSGi tooling.
+
+---
+
+## 12. Band Phase Lifecycle
 
 Every band object progresses through four ordered phases:
 
@@ -418,7 +502,7 @@ enclosing `MultiBand` can confirm all its children have completed.
 
 ---
 
-## 12. Compliance Test Suite
+## 13. Compliance Test Suite
 
 See `test/jdk/tools/pack200/compliance/` for the full compliance test suite. Tests are
 designed to run under jtreg and follow the same `@test` / `@compile` / `@run` pattern
@@ -436,6 +520,6 @@ used by the existing tests in `test/jdk/tools/pack200/`.
 | C-08    | AnnotationRoundTripTest.java     | All four annotation variants (§7.1–§7.5)      |
 | C-09    | LambdaBootstrapTest.java         | BootstrapMethods / InvokeDynamic (§6)         |
 | C-10    | UnknownAttributeTest.java        | Unknown-attribute policies (§10.3)            |
-| C-11    | BandPhaseIntegrityTest.java      | Band phase lifecycle with assertions (§11)    |
+| C-11    | BandPhaseIntegrityTest.java      | Band phase lifecycle with assertions (§12)    |
 | C-12    | MultiClassVersionTest.java       | Mixed-version segment handling (§7.1 index 24)|
 | C-13    | RoundTripSemanticVerify.java     | Attribute-content validation after round-trip |

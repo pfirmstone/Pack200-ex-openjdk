@@ -164,9 +164,8 @@ class PackageWriter extends BandStructure {
             // Java 22–25: class version 66–69
             packageVersion = JAVA22_PACKAGE_VERSION;
         } else {
-            // Java 26+: use the highest known archive version and hope the
-            // reader is also up to date.
-            packageVersion = MAX_PACKAGE_VERSION;
+            // Java 26–27: class version 70–71
+            packageVersion = JAVA26_PACKAGE_VERSION;
         }
 
         if (verbose > 0) {

@@ -324,7 +324,7 @@ class PackageReader extends BandStructure {
         // Each new archive version bracket maps to the ceiling class-file version
         // that was current when that archive version was defined.
         Package.Version maxClassVer;
-        if (packageVersion.greaterThan(JAVA22_PACKAGE_VERSION)) {
+        if (packageVersion.greaterThan(JAVA26_PACKAGE_VERSION)) {
             // Unknown future version: permit the highest class version we know
             // about and attempt to proceed.  checkArchiveVersion() has already
             // emitted a forward-compatibility warning.  Structural features
@@ -338,6 +338,9 @@ class PackageReader extends BandStructure {
                     + maxClassVer.toString()
                     + ". New structural features in this archive may not be"
                     + " decoded correctly.");
+        } else if (packageVersion.greaterThan(JAVA22_PACKAGE_VERSION)) {
+            // 220.0 (JAVA26): class 70.0–71.x (Java 26–27)
+            maxClassVer = JAVA27_MAX_CLASS_VERSION;
         } else if (packageVersion.greaterThan(JAVA18_PACKAGE_VERSION)) {
             // 210.0 (JAVA22): class 66.0–69.x (Java 22–25)
             maxClassVer = JAVA25_MAX_CLASS_VERSION;

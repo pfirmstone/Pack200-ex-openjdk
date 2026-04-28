@@ -73,6 +73,7 @@
                       <manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
                       <manifestEntries>
                           <Main-Class>au.net.zeus.util.jar.pack.Driver</Main-Class>
+                          <Multi-Release>true</Multi-Release>
                       </manifestEntries>
                   </archive>
               </configuration>
@@ -138,6 +139,44 @@
                 <artifactId>maven-antrun-plugin</artifactId>
                 <version>1.8</version>
                 <executions>
+                    <!--
+                      Compile multi-release sources into staging directories so that
+                      bnd-process (process-classes phase) only sees the base Java 8
+                      classes.  The copy-resources executions in prepare-package then
+                      move the versioned class files into the canonical
+                      META-INF/versions/N/ locations inside target/classes/.
+                    -->
+                    <execution>
+                        <id>compile-mrjar</id>
+                        <phase>compile</phase>
+                        <goals><goal>run</goal></goals>
+                        <configuration>
+                            <target>
+                                <!-- Java 9: compile module-info.java -->
+                                <mkdir dir="${project.build.directory}/java9"/>
+                                <javac srcdir="${basedir}/src/main/java9"
+                                       destdir="${project.build.directory}/java9"
+                                       classpath="${project.build.outputDirectory}"
+                                       includeantruntime="false">
+                                    <compilerarg value="--release"/>
+                                    <compilerarg value="9"/>
+                                    <compilerarg value="--patch-module"/>
+                                    <compilerarg value="au.net.zeus.util.jar.pack=${project.build.outputDirectory}"/>
+                                </javac>
+                                <!-- Java 17: compile AccessController-free Pack200 and PropMap -->
+                                <mkdir dir="${project.build.directory}/java17"/>
+                                <javac srcdir="${basedir}/src/main/java17"
+                                       destdir="${project.build.directory}/java17"
+                                       classpath="${project.build.outputDirectory}"
+                                       includeantruntime="false">
+                                    <compilerarg value="--release"/>
+                                    <compilerarg value="17"/>
+                                    <compilerarg value="--patch-module"/>
+                                    <compilerarg value="au.net.zeus.util.jar.pack=${project.build.outputDirectory}"/>
+                                </javac>
+                            </target>
+                        </configuration>
+                    </execution>
                     <execution>
                         <id>test</id>
                         <phase>verify</phase>
@@ -191,6 +230,45 @@
         </executions>
       </plugin>
       <!-- for publishing maven site to gh-pages : end -->
+        <!-- Copy multi-release versioned classes into target/classes/META-INF/versions/
+             in the prepare-package phase, i.e. *after* bnd-process has finished
+             analyzing the base Java 8 classes.  This prevents bnd from complaining
+             about class files found in unexpected directories. -->
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-resources-plugin</artifactId>
+            <version>3.3.1</version>
+            <executions>
+                <execution>
+                    <id>copy-versions-java9</id>
+                    <phase>prepare-package</phase>
+                    <goals><goal>copy-resources</goal></goals>
+                    <configuration>
+                        <outputDirectory>${project.build.outputDirectory}/META-INF/versions/9</outputDirectory>
+                        <resources>
+                            <resource>
+                                <directory>${project.build.directory}/java9</directory>
+                                <filtering>false</filtering>
+                            </resource>
+                        </resources>
+                    </configuration>
+                </execution>
+                <execution>
+                    <id>copy-versions-java17</id>
+                    <phase>prepare-package</phase>
+                    <goals><goal>copy-resources</goal></goals>
+                    <configuration>
+                        <outputDirectory>${project.build.outputDirectory}/META-INF/versions/17</outputDirectory>
+                        <resources>
+                            <resource>
+                                <directory>${project.build.directory}/java17</directory>
+                                <filtering>false</filtering>
+                            </resource>
+                        </resources>
+                    </configuration>
+                </execution>
+            </executions>
+        </plugin>
         </plugins>
     </build>
 
