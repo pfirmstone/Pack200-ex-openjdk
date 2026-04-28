@@ -36,6 +36,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.lang.reflect.Field;
 import java.util.jar.JarFile;
 import net.pack200.Pack200;
 import net.pack200.Pack200.Packer;
@@ -53,6 +54,11 @@ public class PackageVersionTest {
     public final static int JAVA7_PACKAGE_MAJOR_VERSION = 170;
     public final static int JAVA7_PACKAGE_MINOR_VERSION = 1;
 
+    // Pack200 spec §2 – archive version 171.0 covers Java 8 class files (52.x)
+    // with no CONSTANT_Module / CONSTANT_Package / CONSTANT_Dynamic CP entries.
+    public final static int JAVA8_PACKAGE_MAJOR_VERSION = 171;
+    public final static int JAVA8_PACKAGE_MINOR_VERSION = 0;
+
     public static void main(String... args) throws IOException {
         File out = new File("test.pack");
         createClassFile("Test6");
@@ -60,11 +66,15 @@ public class PackageVersionTest {
 
         verify6991164();
 
-        // a jar file devoid of indy classes must generate 160.1 package file
-        verifyPack("Test7.class", JAVA6_PACKAGE_MAJOR_VERSION,
-                JAVA6_PACKAGE_MINOR_VERSION);
+        // Test7.class is compiled with -target 8 (class version 52.0).
+        // Per Pack200 spec §2.1 rule 5, a Java-8 class file without
+        // CONSTANT_Module/CONSTANT_Package/CONSTANT_Dynamic CP entries must
+        // produce archive version 171.0 (JAVA8_PACKAGE_VERSION).
+        verifyPack("Test7.class", JAVA8_PACKAGE_MAJOR_VERSION,
+                JAVA8_PACKAGE_MINOR_VERSION);
 
         // test for resource file, ie. no class files
+        // Per Pack200 spec §2.1 rule 1, no class files → 150.7 (JAVA5_PACKAGE_VERSION).
         verifyPack("Test6.java", JAVA5_PACKAGE_MAJOR_VERSION,
                 JAVA5_PACKAGE_MINOR_VERSION);
         Utils.cleanup();
@@ -75,11 +85,31 @@ public class PackageVersionTest {
         String versionStr = unpacker.toString();
         String expected = "Pack200, Vendor: " +
                 System.getProperty("java.vendor") + ", Version: " +
-                JAVA7_PACKAGE_MAJOR_VERSION + "." + JAVA7_PACKAGE_MINOR_VERSION;
+                getMaxPackageVersion();
         if (!versionStr.equals(expected)) {
             System.out.println("Expected: " + expected);
             System.out.println("Obtained: " + versionStr);
             throw new RuntimeException("did not get expected string " + expected);
+        }
+    }
+
+    /**
+     * Dynamically retrieves the maximum Pack200 package version supported by
+     * the library (Constants.MAX_PACKAGE_VERSION) so that the expected version
+     * string is correct for whichever Java version is under test, without
+     * hardcoding a specific version number that would become stale as the
+     * library evolves.
+     */
+    static String getMaxPackageVersion() {
+        try {
+            Class<?> constClass =
+                    Class.forName("au.net.zeus.util.jar.pack.Constants");
+            Field f = constClass.getDeclaredField("MAX_PACKAGE_VERSION");
+            f.setAccessible(true);
+            return f.get(null).toString();
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(
+                    "Cannot determine library max package version", e);
         }
     }
 
