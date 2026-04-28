@@ -154,9 +154,13 @@ class PackageWriter extends BandStructure {
         } else if (highV.lessThan(JAVA11_MAX_CLASS_VERSION)) {
             // Java 9 or 10: class version 53 or 54, or Module/Package CP entries
             packageVersion = JAVA9_PACKAGE_VERSION;
+        } else if (highV.lessThan(JAVA17_MAX_CLASS_VERSION)) {
+            // Java 11–16: class version 55–60
+            packageVersion = JAVA11_PACKAGE_VERSION;
         } else if (highV.lessThan(JAVA18_MAX_CLASS_VERSION)) {
-            // Java 11–17: class version 55–61
-            packageVersion = JAVA17_PACKAGE_VERSION;
+            // Java 17: class version 61; 190.1 is only selected when
+            // Record/PermittedSubclasses attributes are present (AO_HAVE_CLASS_FLAGS_HI)
+            packageVersion = JAVA11_PACKAGE_VERSION;
         } else if (highV.lessThan(JAVA22_MAX_CLASS_VERSION)) {
             // Java 18–21: class version 62–65
             packageVersion = JAVA18_PACKAGE_VERSION;
