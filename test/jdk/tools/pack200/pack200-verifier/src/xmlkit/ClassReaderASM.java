@@ -1071,6 +1071,50 @@ class XmlAnnotationBodyVisitor extends AnnotationVisitor {
 
     @Override
     public void visit(String name, Object value) {
+        // ASM passes primitive arrays (boolean[], byte[], char[], short[], int[], long[], float[], double[])
+        // directly to visit() rather than using visitArray(). Handle these by expanding them.
+        if (value instanceof boolean[]) {
+            AnnotationVisitor av = visitArray(name);
+            for (boolean v : (boolean[]) value) av.visit(null, v);
+            av.visitEnd();
+            return;
+        } else if (value instanceof byte[]) {
+            AnnotationVisitor av = visitArray(name);
+            for (byte v : (byte[]) value) av.visit(null, v);
+            av.visitEnd();
+            return;
+        } else if (value instanceof char[]) {
+            AnnotationVisitor av = visitArray(name);
+            for (char v : (char[]) value) av.visit(null, v);
+            av.visitEnd();
+            return;
+        } else if (value instanceof short[]) {
+            AnnotationVisitor av = visitArray(name);
+            for (short v : (short[]) value) av.visit(null, v);
+            av.visitEnd();
+            return;
+        } else if (value instanceof int[]) {
+            AnnotationVisitor av = visitArray(name);
+            for (int v : (int[]) value) av.visit(null, v);
+            av.visitEnd();
+            return;
+        } else if (value instanceof long[]) {
+            AnnotationVisitor av = visitArray(name);
+            for (long v : (long[]) value) av.visit(null, v);
+            av.visitEnd();
+            return;
+        } else if (value instanceof float[]) {
+            AnnotationVisitor av = visitArray(name);
+            for (float v : (float[]) value) av.visit(null, v);
+            av.visitEnd();
+            return;
+        } else if (value instanceof double[]) {
+            AnnotationVisitor av = visitArray(name);
+            for (double v : (double[]) value) av.visit(null, v);
+            av.visitEnd();
+            return;
+        }
+
         Element child;
         if (value instanceof Type) {
             child = new Element("Class");
@@ -1173,6 +1217,19 @@ class XmlAnnotationDefaultVisitor extends AnnotationVisitor {
 
     @Override
     public void visit(String name, Object value) {
+        // Delegate primitive array handling to visitArray
+        if (value instanceof boolean[] || value instanceof byte[] || value instanceof char[] ||
+            value instanceof short[] || value instanceof int[] || value instanceof long[] ||
+            value instanceof float[] || value instanceof double[]) {
+            // Wrap in a temporary body visitor to reuse the array expansion logic
+            Element arr = new Element("Array");
+            defaultElement.setAttr("tag", "[");
+            defaultElement.add(arr);
+            XmlAnnotationBodyVisitor av = new XmlAnnotationBodyVisitor(arr, false);
+            av.visit(null, value);
+            av.visitEnd();
+            return;
+        }
         defaultElement.setAttr("tag", "" + inferTag(value));
         Element child;
         if (value instanceof Type) {

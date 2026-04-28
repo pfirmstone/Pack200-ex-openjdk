@@ -268,7 +268,21 @@ public class ClassReader {
             // ASM resolves CP entries; add empty marker element for keepCP mode
             cfile.add(0, new Element("ConstantPool"));
         }
+        if (!keepOrder) {
+            sortRecursively(cfile);
+        }
         return cfile;
+    }
+
+    /** Recursively sort all children of an element for order-independent comparison. */
+    static void sortRecursively(Element e) {
+        e.sort();
+        for (int i = 0; i < e.size(); i++) {
+            Object child = e.get(i);
+            if (child instanceof Element) {
+                sortRecursively((Element) child);
+            }
+        }
     }
 
     public Element readFrom(File file) throws IOException {
