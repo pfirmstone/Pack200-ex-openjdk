@@ -62,7 +62,7 @@ public class TimeStamp {
         File packFile = new File("golden.pack");
 
         // set the test timezone and pack the file
-        TimeZone.setDefault(TimeZone.getTimeZone("IST"));
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Kolkata"));
         Utils.pack(goldenJarFile, packFile);
         TimeZone.setDefault(tz);   // reset the timezone
 
@@ -97,10 +97,10 @@ public class TimeStamp {
         HashMap<String, String> env = new HashMap<>();
         switch(tzname) {
             case "PST":
-                env.put("TZ", "US/Pacific");
+                env.put("TZ", "America/Los_Angeles");
                 break;
             case "IST":
-                env.put("TZ", "Asia/Calcutta");
+                env.put("TZ", "Asia/Kolkata");
                 break;
             default:
                 throw new RuntimeException("not implemented: " + tzname);
@@ -117,13 +117,26 @@ public class TimeStamp {
         String tzname = name.substring(name.lastIndexOf(".") + 1);
         JarOutputStream jos = null;
         try {
-            TimeZone.setDefault(TimeZone.getTimeZone(tzname));
+            TimeZone.setDefault(TimeZone.getTimeZone(toIanaTimezone(tzname)));
             jos = new JarOutputStream(new FileOutputStream(outFile));
             System.out.println("Using timezone: " + TimeZone.getDefault());
             Utils.unpack(packFile, jos);
         } finally {
             Utils.close(jos);
             TimeZone.setDefault(tz); // always reset
+        }
+    }
+
+    /**
+     * Maps short timezone abbreviations used as file-name suffixes to their
+     * canonical IANA timezone IDs.  Three-letter abbreviations such as "IST"
+     * and "PST" are ambiguous and deprecated in recent TZDB releases.
+     */
+    static String toIanaTimezone(String abbrev) {
+        switch (abbrev) {
+            case "IST": return "Asia/Kolkata";
+            case "PST": return "America/Los_Angeles";
+            default:    return abbrev;
         }
     }
 

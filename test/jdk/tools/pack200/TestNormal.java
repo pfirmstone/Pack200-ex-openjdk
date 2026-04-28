@@ -24,6 +24,7 @@
 
 /*
  * @test
+ * @requires jdk.version.major == 8
  * @run main/timeout=600 TestNormal
  * @bug 8020802 8156807
  * @summary Need an ability to create jar files that are invariant to the pack200 packing/unpacking
@@ -49,9 +50,10 @@ public class TestNormal {
             // create the reference jar
             Utils.runExec(javaCmd, "-jar", packJar, "--pack", "-r", "repacked.jar", "original.jar");
 
-            // create the normalized jar using jar(1)
-            // Use -cf syntax (the old -n normalize flag was removed in Java 9+)
-            Utils.runExec(jarCmd, "-cf", "normalized.jar", "-C", testdir, ".");
+            // create the normalized jar using jar(1) with the -n normalize flag.
+            // The -n flag invokes pack200 normalization internally and was removed in Java 9+,
+            // which is why this test requires Java 8 via @requires jdk.version.major == 8.
+            Utils.runExec(jarCmd, "-cfn", "normalized.jar", "-C", testdir, ".");
 
             // compare archive contents bit wise, these should be identical!
             Utils.doCompareBitWise(new File("repacked.jar"),
