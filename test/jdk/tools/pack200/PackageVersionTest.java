@@ -88,9 +88,9 @@ public class PackageVersionTest {
         String target = name.substring(name.length() - 1);
         String javacCmds[] = {
             "-source",
-            "7",
+            "8",
             "-target",
-            "7",
+            "8",
             "-Xlint:-options",
             name + ".java"
         };
