@@ -26,6 +26,7 @@
 package au.net.zeus.util.jar.pack;
 
 import java.io.IOException;
+import java.io.EOFException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.HashMap;
@@ -336,7 +337,7 @@ class Coding implements Comparable<Coding>, CodingMethod, Histogram.BitMetric {
         long H_i = 1;
         for (int i = 0; i < B; i++) {
             int b_i = in.read();
-            if (b_i < 0)  throw new RuntimeException("unexpected EOF");
+            if (b_i < 0)  throw new EOFException("unexpected EOF in band coding");
             sum += b_i*H_i;
             H_i *= H;
             if (b_i < L)  break;
