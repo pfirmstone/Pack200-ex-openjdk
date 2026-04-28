@@ -436,7 +436,9 @@ class BandStructure {
         void expectLength(int l) {
             assert(assertPhase(this, EXPECT_PHASE));
             assert(valuesExpected == 0);  // all at once
-            assert(l >= 0);
+            if (l < 0)
+                throw new IllegalArgumentException(
+                        "negative expected length " + l + " for band: " + name());
             valuesExpected = l;
         }
         /** Expect more values.  (Multiple calls accumulate.) */
@@ -962,17 +964,23 @@ class BandStructure {
         public int getInt() {
             return getValue();
         }
-        /** Return the sum of all values in this band. */
-        public int getIntTotal() {
+        /** Return the sum of all values in this band.
+         *  Returns a non-negative int; throws IOException if the sum overflows
+         *  a non-negative 32-bit value, indicating a malformed archive.
+         */
+        public int getIntTotal() throws IOException {
             assert(phase() == DISBURSE_PHASE);
             // assert that this is the whole pass; no other reads allowed
             assert(valuesRemainingForDebug() == length());
-            int total = 0;
+            long total = 0;
             for (int k = length(); k > 0; k--) {
                 total += getInt();
+                if (total > Integer.MAX_VALUE)
+                    throw new IOException(
+                        "Band sum overflows 32-bit range in band: " + name());
             }
             resetForSecondPass();
-            return total;
+            return (int) total;
         }
         /** Return the occurrence count of a specific value in this band. */
         public int getIntCount(int value) {
@@ -990,12 +998,14 @@ class BandStructure {
         }
     }
 
-    static int getIntTotal(int[] values) {
-        int total = 0;
+    static int getIntTotal(int[] values) throws IOException {
+        long total = 0;
         for (int i = 0; i < values.length; i++) {
             total += values[i];
+            if (total > Integer.MAX_VALUE)
+                throw new IOException("Band value sum overflows 32-bit range");
         }
-        return total;
+        return (int) total;
     }
 
     class CPRefBand extends ValueBand {
@@ -1087,7 +1097,9 @@ class BandStructure {
 
     Entry decodeRef(int n, Index ix) {
         if (n < 0 || n >= ix.size())
-            Utils.log.warning("decoding bad ref "+n+" in "+ix);
+            throw new IllegalArgumentException(
+                    "invalid constant pool reference " + n +
+                    " (index size=" + ix.size() + ") in " + ix);
         Entry e = ix.getEntry(n);
         if (verbose > 2)
             Utils.log.fine("getRef "+n+" => "+e);

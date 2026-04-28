@@ -894,6 +894,13 @@ class Package {
         if (fname.startsWith("/")) {
             throw new IllegalArgumentException("absolute file name "+fname);
         }
+        // Reject path-traversal sequences to prevent zip slip attacks.
+        for (String part : fname.split("/", -1)) {
+            if ("..".equals(part)) {
+                throw new IllegalArgumentException(
+                        "path traversal sequence '..' in file name: "+fname);
+            }
+        }
         return fname;
     }
 

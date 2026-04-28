@@ -62,6 +62,23 @@ class PackageReader extends BandStructure {
     LimitedBuffer in;
     Package.Version packageVersion;
 
+    // Maximum element counts accepted from an untrusted archive header.
+    // These limits are chosen to prevent immediate OutOfMemoryError while
+    // still accommodating any legitimately large archive.
+    private static final int MAX_FILE_COUNT         = 1_000_000;
+    private static final int MAX_CLASS_COUNT        = 1_000_000;
+    private static final int MAX_INNER_CLASS_COUNT  = 1_000_000;
+    private static final int MAX_ATTR_DEF_COUNT     = 65_536;
+    private static final int MAX_CP_ENTRY_COUNT     = 1_000_000;
+    // JVM spec limit for exception-table entries in a single Code attribute.
+    static final int MAX_HANDLER_COUNT              = 65_535;
+    // JVM spec limit for bytecode in a single Code attribute.
+    static final int MAX_CODE_BYTES                 = 65_535;
+    // Maximum number of pack200 segments accepted from a single stream.
+    static final int MAX_SEGMENT_COUNT              = 1_000;
+    // Maximum UTF-8 string length (chars) that a single CP entry may claim.
+    private static final int MAX_UTF8_CHARS         = 65_535;
+
     /**
      * Callback invoked for each non-class-stub resource file encountered
      * during {@link #readFiles()}.  When a consumer is set the file's raw
@@ -423,6 +440,19 @@ class PackageReader extends BandStructure {
 
         archive_header_1.doneDisbursing();
 
+        // Validate archive-level counts against safe upper limits to prevent
+        // resource exhaustion from a crafted archive with huge count fields.
+        checkCount("file_count",        numFiles,         MAX_FILE_COUNT);
+        checkCount("class_count",       numClasses,       MAX_CLASS_COUNT);
+        checkCount("ic_count",          numInnerClasses,  MAX_INNER_CLASS_COUNT);
+        checkCount("attr_def_count",    numAttrDefs,      MAX_ATTR_DEF_COUNT);
+        for (int k = 0; k < tagCount.length; k++) {
+            if (tagCount[k] > 0) {
+                checkCount("cp_" + ConstantPool.tagName((byte)k) + "_count",
+                           tagCount[k], MAX_CP_ENTRY_COUNT);
+            }
+        }
+
         // set some derived archive bits
         if (testBit(archiveOptions, AO_DEFLATE_HINT)) {
             pkg.default_options |= FO_DEFLATE_HINT;
@@ -529,6 +559,16 @@ class PackageReader extends BandStructure {
             throw new RuntimeException("unexpected band " + bandname);
         }
     }
+
+    /** Throws IOException if {@code count} exceeds {@code max}, to prevent
+     *  resource exhaustion from adversarially large count fields. */
+    private static void checkCount(String field, int count, int max)
+            throws IOException {
+        if (count < 0 || count > max)
+            throw new IOException("Archive field '" + field +
+                    "' value " + count + " exceeds maximum " + max);
+    }
+
     void readConstantPool() throws IOException {
         //  cp_bands:
         //        cp_Utf8
@@ -864,6 +904,9 @@ class PackageReader extends BandStructure {
             if (maxChars < prefix + suffix)
                 maxChars = prefix + suffix;
         }
+        if (maxChars > MAX_UTF8_CHARS)
+            throw new IOException("UTF-8 constant pool string length " + maxChars +
+                    " exceeds maximum " + MAX_UTF8_CHARS);
         char[] buf = new char[maxChars];
 
         // Fifth band(s):  Get the specially packed characters.
@@ -1530,7 +1573,11 @@ class PackageReader extends BandStructure {
         for (Code c : longCodes) {
             c.setMaxStack(     code_max_stack.getInt() );
             c.setMaxNALocals(  code_max_na_locals.getInt() );
-            c.setHandlerCount( code_handler_count.getInt() );
+            int hc = code_handler_count.getInt();
+            if (hc < 0 || hc > MAX_HANDLER_COUNT)
+                throw new IOException("Exception handler count " + hc +
+                        " exceeds JVM maximum " + MAX_HANDLER_COUNT);
+            c.setHandlerCount( hc );
         }
         code_max_stack.doneDisbursing();
         code_max_na_locals.doneDisbursing();
@@ -2108,6 +2155,10 @@ class PackageReader extends BandStructure {
             Code c = allCodes[k];
         scanOneMethod:
             for (int i = 0; ; i++) {
+                if (i >= MAX_CODE_BYTES)
+                    throw new IOException("Bytecode length " + i +
+                            " exceeds JVM maximum " + MAX_CODE_BYTES +
+                            " in " + c);
                 int bc = bc_codes.getByte();
                 if (i + 10 > buf.length)  buf = realloc(buf);
                 buf[i] = (byte)bc;
@@ -2233,6 +2284,10 @@ class PackageReader extends BandStructure {
             for (int i = 0; i < codeOps.length; i++) {
                 int bc = Instruction.getByte(codeOps, i);
                 int curPC = pc;
+                if (curPC >= MAX_CODE_BYTES)
+                    throw new IOException("Expanded bytecode length " + curPC +
+                            " exceeds JVM maximum " + MAX_CODE_BYTES +
+                            " in " + code);
                 insnMap[numInsns++] = curPC;
                 if (pc + 10 > buf.length)  buf = realloc(buf);
                 if (numInsns+10 > insnMap.length)  insnMap = realloc(insnMap);
