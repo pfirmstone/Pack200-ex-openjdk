@@ -99,15 +99,6 @@ class Utils {
         File srcDir = new File(getVerifierDir(), "src");
         List<File> javaFileList = findFiles(srcDir, createFilter(JAVA_FILE_EXT));
 
-        // Conditionally include the version-specific AttributeVisitor implementation.
-        // ModernAttributeVisitor requires PermittedSubclasses_attribute and
-        // Record_attribute which were added in JDK 15. LegacyAttributeVisitor
-        // is used for JDK versions older than 15 where those classes do not exist.
-        boolean modernJdk = Runtime.version().feature() >= 15;
-        final String excludeName = modernJdk ? "LegacyAttributeVisitor.java"
-                                             : "ModernAttributeVisitor.java";
-        javaFileList.removeIf(f -> f.getName().equals(excludeName));
-
         File tmpFile = File.createTempFile("javac", ".tmp", new File("."));
         XCLASSES.mkdirs();
         FileOutputStream fos = null;
@@ -125,8 +116,8 @@ class Utils {
 
         compiler("-d",
                 XCLASSES.getName(),
-                "--add-modules=jdk.jdeps",
-                "--add-exports=jdk.jdeps/com.sun.tools.classfile=ALL-UNNAMED",
+                "-cp",
+                getAsmJar().getAbsolutePath(),
                 "@" + tmpFile.getAbsolutePath());
 
         jar("cvfe",
@@ -135,6 +126,10 @@ class Utils {
             "-C",
             XCLASSES.getName(),
             ".");
+    }
+
+    private static File getAsmJar() {
+        return new File(getVerifierDir(), "lib" + File.separator + "asm-9.7.jar");
     }
 
     private static File getVerifierDir() {
@@ -163,9 +158,9 @@ class Utils {
         init();
         List<String> cmds = new ArrayList<String>();
         cmds.add(getJavaCmd());
-        cmds.add("--add-exports=jdk.jdeps/com.sun.tools.classfile=ALL-UNNAMED");
         cmds.add("-cp");
-        cmds.add(VerifierJar.getName());
+        cmds.add(VerifierJar.getName() + File.pathSeparator
+                 + getAsmJar().getAbsolutePath());
         cmds.add("sun.tools.pack.verify.Main");
         cmds.add(reference.getAbsolutePath());
         cmds.add(specimen.getAbsolutePath());
@@ -179,7 +174,8 @@ class Utils {
         List<String> cmds = new ArrayList<String>();
         cmds.add(getJavaCmd());
         cmds.add("-cp");
-        cmds.add(VerifierJar.getName());
+        cmds.add(VerifierJar.getName() + File.pathSeparator
+                 + getAsmJar().getAbsolutePath());
         cmds.add("sun.tools.pack.verify.Main");
         cmds.add(reference.getName());
         cmds.add(specimen.getName());
