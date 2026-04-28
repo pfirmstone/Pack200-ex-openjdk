@@ -29,7 +29,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.EventListener;
 import java.util.jar.JarFile;
@@ -791,11 +790,66 @@ public abstract class Pack200 {
     private static class GetPropertyAction {
 
         private static String privilegedGetProperty(final String prop, final String string) {
-            return AccessController.doPrivileged(
+            return DoPrivilegedHelper.run(
                 (PrivilegedAction<String>) () -> System.getProperty(prop, string)
             );
-}
+        }
 
+    }
+
+    /**
+     * Reflective shim for {@code AccessController.doPrivileged}.
+     *
+     * <p>On JVMs where {@code java.security.AccessController} is present
+     * (Java 8 through at least Java 24, including DirtyChai builds that
+     * preserve the Security Manager API), the action is executed under
+     * access-controller privilege escalation via reflection.
+     *
+     * <p>On future JVMs where {@code AccessController} has been removed,
+     * the method reference will be {@code null} and the action is executed
+     * directly via {@link PrivilegedAction#run()}.
+     */
+    private static final class DoPrivilegedHelper {
+        /**
+         * {@code AccessController.doPrivileged(PrivilegedAction)} method, or
+         * {@code null} if the class has been removed from the JVM.
+         */
+        private static final java.lang.reflect.Method doPrivileged;
+
+        static {
+            java.lang.reflect.Method m = null;
+            try {
+                Class<?> ac = Class.forName("java.security.AccessController",
+                        true, DoPrivilegedHelper.class.getClassLoader());
+                m = ac.getMethod("doPrivileged", PrivilegedAction.class);
+            } catch (ClassNotFoundException | NoSuchMethodException ignored) {
+                // AccessController has been removed; fall back to direct invocation.
+            }
+            doPrivileged = m;
+        }
+
+        /**
+         * Runs {@code action} via {@code AccessController.doPrivileged} if
+         * available, otherwise runs it directly.
+         */
+        @SuppressWarnings("unchecked")
+        static <T> T run(PrivilegedAction<T> action) {
+            if (doPrivileged != null) {
+                try {
+                    return (T) doPrivileged.invoke(null, action);
+                } catch (java.lang.reflect.InvocationTargetException x) {
+                    Throwable cause = x.getCause();
+                    if (cause instanceof Error)
+                        throw (Error) cause;
+                    if (cause instanceof RuntimeException)
+                        throw (RuntimeException) cause;
+                    throw new AssertionError(x);
+                } catch (IllegalAccessException x) {
+                    throw new AssertionError(x);
+                }
+            }
+            return action.run();
+        }
     }
 
 }
