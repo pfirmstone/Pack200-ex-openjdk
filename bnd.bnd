@@ -2,3 +2,12 @@
     au.net.zeus.util.jar
 -sources: true
 -multiRelease: true
+# Versioned class files (META-INF/versions/9/ and META-INF/versions/17/) may be
+# present in target/classes/ on an incremental (non-clean) build because the
+# prepare-package phase copies them there after a previous full build.  bnd raises
+# an error when it finds .class files whose path does not match their binary name,
+# which is always the case for multi-release versioned entries.  Downgrade that
+# diagnostic to a warning so that incremental builds continue to work; the
+# versioned classes are packaged correctly by maven-resources-plugin in the
+# prepare-package phase and maven-jar-plugin in the package phase.
+-fixupmessages: "Classes found in the wrong directory";is:=warning
