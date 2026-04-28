@@ -327,7 +327,8 @@ class PopulationCoding implements CodingMethod {
             while (fillp < newFillp) {
                 int val = lfValues[fillp++];
                 assert(uniqueValuesForDebug.add(val));
-                assert(fillp <= maxForDebug);
+                if (fillp > maxForDebug)
+                    throw new IOException("Too many favored values in population coding band");
                 last = val;
                 min = moreCentral(min, val);
                 //min2 = moreCentral2(min2, val, min);
@@ -351,7 +352,8 @@ class PopulationCoding implements CodingMethod {
                     lfValues = BandStructure.realloc(lfValues);
                 lfValues[fillp++] = val;
                 assert(uniqueValuesForDebug.add(val));
-                assert(fillp <= maxForDebug);
+                if (fillp > maxForDebug)
+                    throw new IOException("Too many favored values in population coding band");
                 last = val;
                 min = moreCentral(min, val);
                 //min2 = moreCentral(min2, val);
@@ -365,7 +367,8 @@ class PopulationCoding implements CodingMethod {
                     lfValues = BandStructure.realloc(lfValues);
                 lfValues[fillp++] = val;
                 assert(uniqueValuesForDebug.add(val));
-                assert(fillp <= maxForDebug);
+                if (fillp > maxForDebug)
+                    throw new IOException("Too many favored values in population coding band");
                 last = val;
                 min = moreCentral(min, val);
                 //min2 = moreCentral2(min2, val, min);

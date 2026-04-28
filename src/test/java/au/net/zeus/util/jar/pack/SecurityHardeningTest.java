@@ -142,7 +142,30 @@ public class SecurityHardeningTest {
     }
 
     // -----------------------------------------------------------------------
-    // 3. Round-trip pack / unpack using the library's own JAR
+    // 3. Coding.readIntFrom EOF throws EOFException (Fix 5)
+    // -----------------------------------------------------------------------
+
+    /**
+     * An empty InputStream fed to {@code Coding.readIntFrom} must produce an
+     * {@link java.io.EOFException}, not a {@link RuntimeException}.
+     */
+    @Test
+    public void testCodingReadIntFromEofThrowsEOFException() {
+        try {
+            Coding.readIntFrom(new ByteArrayInputStream(new byte[0]),
+                    5 /*B*/, 256 /*H*/, 0 /*S*/);
+            fail("Expected EOFException");
+        } catch (java.io.EOFException e) {
+            // correct: EOFException is an IOException
+        } catch (IOException e) {
+            // also acceptable if the implementation wraps it
+        } catch (RuntimeException e) {
+            fail("readIntFrom must not throw RuntimeException on EOF: " + e);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // 4. Round-trip pack / unpack using the library's own JAR
     //
     //    This acts as a regression test confirming the security hardening
     //    did not break normal unpacking of a legitimate archive.

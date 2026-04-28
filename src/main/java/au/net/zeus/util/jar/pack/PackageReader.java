@@ -78,6 +78,16 @@ class PackageReader extends BandStructure {
     static final int MAX_SEGMENT_COUNT              = 1_000;
     // Maximum UTF-8 string length (chars) that a single CP entry may claim.
     private static final int MAX_UTF8_CHARS         = 65_535;
+    // Maximum bytes of band-header meta-coding in a single archive segment.
+    // Each non-default-coded band contributes a small number of bytes (1–5).
+    // 1 MB is a generous upper bound that prevents heap exhaustion from a
+    // crafted archive claiming a huge band_headers_size field.
+    private static final int MAX_BAND_HEADERS_SIZE  = 1_000_000;
+    // Maximum number of switch-case entries in a single switch instruction.
+    // Bounded by MAX_CODE_BYTES because the entire method must fit in 65 535
+    // bytes of bytecode; used to guard against integer overflow before the
+    // value is multiplied or used as an array length.
+    private static final int MAX_CASE_COUNT         = MAX_CODE_BYTES;
 
     /**
      * Callback invoked for each non-class-stub resource file encountered
@@ -422,7 +432,11 @@ class PackageReader extends BandStructure {
         }
 
         if (haveSpecial) {
-            band_headers.expectLength(archive_header_1.getInt());
+            int bandHeadersSize = archive_header_1.getInt();
+            if (bandHeadersSize < 0 || bandHeadersSize > MAX_BAND_HEADERS_SIZE)
+                throw new IOException("band_headers_size " + bandHeadersSize +
+                        " exceeds maximum " + MAX_BAND_HEADERS_SIZE);
+            band_headers.expectLength(bandHeadersSize);
             numAttrDefs = archive_header_1.getInt();
         } else {
             band_headers.expectLength(0);
@@ -901,12 +915,14 @@ class PackageReader extends BandStructure {
             } else {
                 assert(suffixChars[i] != null);
             }
-            if (maxChars < prefix + suffix)
-                maxChars = prefix + suffix;
+            // Use long arithmetic to avoid int overflow before the limit check.
+            long charLen = (long)prefix + suffix;
+            if (charLen > MAX_UTF8_CHARS)
+                throw new IOException("UTF-8 constant pool string length " + charLen +
+                        " exceeds maximum " + MAX_UTF8_CHARS);
+            if (maxChars < (int)charLen)
+                maxChars = (int)charLen;
         }
-        if (maxChars > MAX_UTF8_CHARS)
-            throw new IOException("UTF-8 constant pool string length " + maxChars +
-                    " exceeds maximum " + MAX_UTF8_CHARS);
         char[] buf = new char[maxChars];
 
         // Fifth band(s):  Get the specially packed characters.
@@ -2123,7 +2139,19 @@ class PackageReader extends BandStructure {
         for (int i = 0; i < operand_bands.length; i++) {
             operand_bands[i].readFrom(in);
         }
-        bc_escbyte.expectLength(bc_escsize.getIntTotal());
+        // Each escape byte is inline bytecode content; the total across all
+        // methods cannot exceed allCodes.length * MAX_CODE_BYTES.  Guard here
+        // to prevent an attacker from inflating bc_escbyte beyond what the
+        // code structure can ever legitimately require.
+        {
+            int escByteTotal = bc_escsize.getIntTotal();
+            long maxEscBytes = Math.min((long)allCodes.length * MAX_CODE_BYTES,
+                                        Integer.MAX_VALUE);
+            if (escByteTotal > maxEscBytes)
+                throw new IOException("Escape byte total " + escByteTotal +
+                        " exceeds code size limit (" + maxEscBytes + ")");
+            bc_escbyte.expectLength(escByteTotal);
+        }
         bc_escbyte.readFrom(in);
 
         expandByteCodeOps();
@@ -2245,6 +2273,9 @@ class PackageReader extends BandStructure {
         for (Integer i : allSwitchOps) {
             int bc = i.intValue();
             int caseCount = bc_case_count.getInt();
+            if (caseCount < 0 || caseCount > MAX_CASE_COUNT)
+                throw new IOException("switch case count " + caseCount +
+                        " exceeds maximum " + MAX_CASE_COUNT);
             bc_label.expectMoreLength(1+caseCount); // default label + cases
             bc_case_value.expectMoreLength(bc == _tableswitch ? 1 : caseCount);
         }
