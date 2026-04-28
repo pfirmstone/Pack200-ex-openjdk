@@ -117,7 +117,17 @@ public class Pack200Test {
     public static void main(String[] args) throws Exception {
         // select the jars carefully, adding more jars will increase the
         // testing time.
-        jarList.add(Utils.createRtJar());
+        File rtJar = new File(Utils.JavaHome + File.separator + "lib"
+                + File.separator + "rt.jar");
+        if (rtJar.exists()) {
+            // Java 8 and earlier: use the real rt.jar
+            jarList.add(rtJar);
+        } else {
+            // Java 9+: rt.jar no longer exists in the modular JDK.
+            // Create a representative jar from the java.base module via
+            // the jrt:// filesystem instead of packing all JDK modules.
+            jarList.add(Utils.createRtJar("/modules/java.base/.*\\.class"));
+        }
         jarList.add(Utils.getGoldenJar());
         System.out.println(jarList);
         doPackUnpack();
