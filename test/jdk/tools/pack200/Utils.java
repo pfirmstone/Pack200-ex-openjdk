@@ -129,7 +129,7 @@ class Utils {
     }
 
     private static File getAsmJar() {
-        return new File(getVerifierDir(), "lib" + File.separator + "asm-9.7.jar");
+        return new File(getVerifierDir(), "lib" + File.separator + "asm-9.9.1.jar");
     }
 
     private static File getVerifierDir() {

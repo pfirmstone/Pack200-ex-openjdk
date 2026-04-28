@@ -22,10 +22,10 @@
   <target name="compile" depends="init">
     <!-- Compile the java code from ${src} into ${build} using ASM -->
     <javac
-	   source="1.9"
+	   release="8"
 	   srcdir="${src}"
 	   destdir="${build}/classes"
-	   classpath="${basedir}/lib/asm-9.7.jar"
+	   classpath="${basedir}/lib/asm-9.9.1.jar"
 	   verbose="no"
 	   debug="on">
     </javac>
@@ -33,7 +33,7 @@
 
   <target name="doc" depends="init, compile">
       <javadoc
-        source="1.9"
+        release="8"
         sourcepath="${src}"
         destdir="${api}"
       />
@@ -44,7 +44,7 @@
     <jar destfile="${dist}/pack200-verifier.jar">
       <manifest>
         <attribute name="Main-Class" value="sun.tools.pack.verify.Main"/>
-        <attribute name="Class-Path" value="lib/asm-9.7.jar"/>
+        <attribute name="Class-Path" value="lib/asm-9.9.1.jar"/>
       </manifest>
       <fileset dir="${classes}"/>
     </jar>

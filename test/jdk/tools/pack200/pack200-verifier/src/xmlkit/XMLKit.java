@@ -3431,13 +3431,13 @@ public abstract class XMLKit {
 
     static {
         zeroArgs.put(Boolean.TYPE, Boolean.FALSE);
-        zeroArgs.put(Character.TYPE, new Character((char) 0));
-        zeroArgs.put(Byte.TYPE, new Byte((byte) 0));
-        zeroArgs.put(Short.TYPE, new Short((short) 0));
-        zeroArgs.put(Integer.TYPE, new Integer(0));
-        zeroArgs.put(Float.TYPE, new Float(0));
-        zeroArgs.put(Long.TYPE, new Long(0));
-        zeroArgs.put(Double.TYPE, new Double(0));
+        zeroArgs.put(Character.TYPE, Character.valueOf((char) 0));
+        zeroArgs.put(Byte.TYPE, Byte.valueOf((byte) 0));
+        zeroArgs.put(Short.TYPE, Short.valueOf((short) 0));
+        zeroArgs.put(Integer.TYPE, Integer.valueOf(0));
+        zeroArgs.put(Float.TYPE, Float.valueOf(0));
+        zeroArgs.put(Long.TYPE, Long.valueOf(0));
+        zeroArgs.put(Double.TYPE, Double.valueOf(0));
     }
 
     private static String opToString(String s1, Object[] s2, String s3) {
@@ -4177,9 +4177,9 @@ public abstract class XMLKit {
             long lval = Long.parseLong(str);
             if (lval == (int) lval) {
                 // Narrow to Integer, if possible.
-                return new Integer((int) lval);
+                return Integer.valueOf((int) lval);
             }
-            return new Long(lval);
+            return Long.valueOf(lval);
         } catch (NumberFormatException ee) {
             // Could not represent it as a long.
             return new java.math.BigInteger(str, 10);
