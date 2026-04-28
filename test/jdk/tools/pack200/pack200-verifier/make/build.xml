@@ -20,26 +20,14 @@
   </target>
 
   <target name="compile" depends="init">
-    <!-- Determine which version-specific AttributeVisitor to exclude -->
-    <condition property="exclude.legacy.visitor" value="true">
-      <javaversion atleast="15"/>
-    </condition>
-    <condition property="exclude.modern.visitor" value="true">
-      <not><javaversion atleast="15"/></not>
-    </condition>
-
-    <!-- Compile the java code from ${src} into ${build} -->
+    <!-- Compile the java code from ${src} into ${build} using ASM -->
     <javac
 	   source="1.9"
 	   srcdir="${src}"
 	   destdir="${build}/classes"
+	   classpath="${basedir}/lib/asm-9.7.jar"
 	   verbose="no"
 	   debug="on">
-      <compilerarg line="--add-modules=jdk.jdeps --add-exports=jdk.jdeps/com.sun.tools.classfile=ALL-UNNAMED"/>
-      <!-- On JDK 15+, exclude the legacy visitor (uses no-op for new attributes) -->
-      <exclude name="**/LegacyAttributeVisitor.java" if="exclude.legacy.visitor"/>
-      <!-- On JDK older than 15, exclude the modern visitor (imports unavailable classes) -->
-      <exclude name="**/ModernAttributeVisitor.java" if="exclude.modern.visitor"/>
     </javac>
   </target>
 
@@ -56,6 +44,7 @@
     <jar destfile="${dist}/pack200-verifier.jar">
       <manifest>
         <attribute name="Main-Class" value="sun.tools.pack.verify.Main"/>
+        <attribute name="Class-Path" value="lib/asm-9.7.jar"/>
       </manifest>
       <fileset dir="${classes}"/>
     </jar>

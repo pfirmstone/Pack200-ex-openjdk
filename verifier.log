@@ -1,0 +1,30 @@
+Log started Tue Apr 28 06:25:39 UTC 2026
+17.0.18+8	OpenJDK 64-Bit Server VM
+System properties
+	java.home=/usr/lib/jvm/temurin-17-jdk-amd64
+	java.class.version=61.0
+	java.class.path=/tmp/verifier-test-classes:/tmp/asm-9.7.jar
+	os.name=Linux
+	os.arch=amd64
+	os.version=6.17.0-1010-azure
+	user.name=runner
+	user.home=/home/runner
+	user.dir=/home/runner/work/Pack200-ex-openjdk/Pack200-ex-openjdk
+	Locale.getDefault=en
+System properties end
+LogFile:./verifier.log
+Reference JAR:/tmp/complex-ref.jar
+Compared  JAR:/tmp/complex-spec.jar
+Ignore Compile Attributes:false
+Ignore Debug   Attributes:false
+Ignore Unknown Attributes:false
+Class ordering check:true
+Class validation check:true
+Bit-wise compare:false
+ClassName:ALL
+Unknown attributes ignored:false
+[]
++++Complex$Nested.class+++	b/b:PASS
++++Complex.class+++	b/b:PASS
++++MyAnn.class+++	b/b:PASS
+PASS
