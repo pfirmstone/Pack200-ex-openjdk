@@ -920,6 +920,7 @@ class PackageReader extends BandStructure {
             if (charLen > MAX_UTF8_CHARS)
                 throw new IOException("UTF-8 constant pool string length " + charLen +
                         " exceeds maximum " + MAX_UTF8_CHARS);
+            // Safe cast: charLen <= MAX_UTF8_CHARS (65535) after the check above.
             if (maxChars < (int)charLen)
                 maxChars = (int)charLen;
         }
@@ -2145,6 +2146,9 @@ class PackageReader extends BandStructure {
         // code structure can ever legitimately require.
         {
             int escByteTotal = bc_escsize.getIntTotal();
+            // Guard against allCodes.length * MAX_CODE_BYTES overflowing int:
+            // compute the product in long and clamp to Integer.MAX_VALUE before
+            // comparing with the (already int-range-capped) escByteTotal.
             long maxEscBytes = Math.min((long)allCodes.length * MAX_CODE_BYTES,
                                         Integer.MAX_VALUE);
             if (escByteTotal > maxEscBytes)
