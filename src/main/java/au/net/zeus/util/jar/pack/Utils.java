@@ -201,11 +201,49 @@ class Utils {
     static final Pack200Logger log
         = new Pack200Logger("au.net.zeus.util.jar.Pack200");
 
-    // Returns the Max Version String of this implementation
+    // Returns the version string for this implementation, reflecting the highest
+    // Pack200 archive version that can be produced for class files compiled by
+    // the running JVM (per Pack200 spec §2 version table).  The reported version
+    // is never higher than the pack version corresponding to the current JVM so
+    // that callers can rely on it to describe actual capability.
     static String getVersionString() {
         return "Pack200, Vendor: " +
             System.getProperty("java.vendor") +
-            ", Version: " + Constants.MAX_PACKAGE_VERSION;
+            ", Version: " + getVersionForCurrentJVM();
+    }
+
+    // Maps the running JVM's Java specification version to the highest Pack200
+    // archive version that implementation can produce for that JVM's class files,
+    // following the version selection table in Pack200 spec §2.
+    // Uses java.specification.version (always a clean integer or "1.N" string)
+    // so that it works on Java 8 and later without requiring Runtime.version().
+    static Package.Version getVersionForCurrentJVM() {
+        int javaVersion = parseJavaSpecVersion();
+        if (javaVersion >= 26) return Constants.JAVA26_PACKAGE_VERSION;
+        if (javaVersion >= 22) return Constants.JAVA22_PACKAGE_VERSION;
+        if (javaVersion >= 18) return Constants.JAVA18_PACKAGE_VERSION;
+        if (javaVersion >= 17) return Constants.JAVA17_PACKAGE_VERSION;
+        if (javaVersion >= 11) return Constants.JAVA11_PACKAGE_VERSION;
+        if (javaVersion >= 9)  return Constants.JAVA9_PACKAGE_VERSION;
+        if (javaVersion >= 8)  return Constants.JAVA8_PACKAGE_VERSION;
+        if (javaVersion >= 7)  return Constants.JAVA7_PACKAGE_VERSION;
+        if (javaVersion >= 6)  return Constants.JAVA6_PACKAGE_VERSION;
+        return Constants.JAVA5_PACKAGE_VERSION;
+    }
+
+    // Parses java.specification.version into a plain integer feature version.
+    // Pre-Java-9 the property has the form "1.N"; Java 9+ it is just "N".
+    private static int parseJavaSpecVersion() {
+        String spec = System.getProperty("java.specification.version", "8");
+        if (spec.startsWith("1.")) {
+            return Integer.parseInt(spec.substring(2));
+        }
+        try {
+            // Guard against any unexpected suffix (e.g. "25-internal")
+            return Integer.parseInt(spec.split("[^0-9]")[0]);
+        } catch (NumberFormatException e) {
+            return 8; // conservative fallback
+        }
     }
 
     static void markJarFile(JarOutputStream out) throws IOException {

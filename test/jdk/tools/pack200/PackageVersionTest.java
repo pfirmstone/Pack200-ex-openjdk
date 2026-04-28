@@ -36,7 +36,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.lang.reflect.Field;
 import java.util.jar.JarFile;
 import net.pack200.Pack200;
 import net.pack200.Pack200.Packer;
@@ -85,7 +84,7 @@ public class PackageVersionTest {
         String versionStr = unpacker.toString();
         String expected = "Pack200, Vendor: " +
                 System.getProperty("java.vendor") + ", Version: " +
-                getMaxPackageVersion();
+                getExpectedPackageVersion();
         if (!versionStr.equals(expected)) {
             System.out.println("Expected: " + expected);
             System.out.println("Obtained: " + versionStr);
@@ -94,22 +93,40 @@ public class PackageVersionTest {
     }
 
     /**
-     * Dynamically retrieves the maximum Pack200 package version supported by
-     * the library (Constants.MAX_PACKAGE_VERSION) so that the expected version
-     * string is correct for whichever Java version is under test, without
-     * hardcoding a specific version number that would become stale as the
-     * library evolves.
+     * Returns the Pack200 archive version string that the library is expected
+     * to report for the running JVM, following the version selection table in
+     * Pack200 spec §2.  The reported version must not exceed the pack version
+     * corresponding to the JVM under test.
      */
-    static String getMaxPackageVersion() {
+    static String getExpectedPackageVersion() {
+        int javaVersion = getJavaFeatureVersion();
+        int major, minor;
+        if      (javaVersion >= 26) { major = 220; minor = 0; } // JAVA26_PACKAGE_VERSION
+        else if (javaVersion >= 22) { major = 210; minor = 0; } // JAVA22_PACKAGE_VERSION
+        else if (javaVersion >= 18) { major = 200; minor = 0; } // JAVA18_PACKAGE_VERSION
+        else if (javaVersion >= 17) { major = 190; minor = 1; } // JAVA17_PACKAGE_VERSION
+        else if (javaVersion >= 11) { major = 190; minor = 0; } // JAVA11_PACKAGE_VERSION
+        else if (javaVersion >= 9)  { major = 180; minor = 0; } // JAVA9_PACKAGE_VERSION
+        else if (javaVersion >= 8)  { major = 171; minor = 0; } // JAVA8_PACKAGE_VERSION
+        else if (javaVersion >= 7)  { major = 170; minor = 1; } // JAVA7_PACKAGE_VERSION
+        else if (javaVersion >= 6)  { major = 160; minor = 1; } // JAVA6_PACKAGE_VERSION
+        else                        { major = 150; minor = 7; } // JAVA5_PACKAGE_VERSION
+        return major + "." + minor;
+    }
+
+    // Parses java.specification.version into a plain integer feature version.
+    // Pre-Java-9 the property has the form "1.N"; Java 9+ it is just "N".
+    // NOTE: this intentionally mirrors Utils.parseJavaSpecVersion() in the
+    // library; that method is package-private and therefore not reachable here.
+    static int getJavaFeatureVersion() {
+        String spec = System.getProperty("java.specification.version", "8");
+        if (spec.startsWith("1.")) {
+            return Integer.parseInt(spec.substring(2));
+        }
         try {
-            Class<?> constClass =
-                    Class.forName("au.net.zeus.util.jar.pack.Constants");
-            Field f = constClass.getDeclaredField("MAX_PACKAGE_VERSION");
-            f.setAccessible(true);
-            return f.get(null).toString();
-        } catch (ReflectiveOperationException e) {
-            throw new RuntimeException(
-                    "Cannot determine library max package version", e);
+            return Integer.parseInt(spec.split("[^0-9]")[0]);
+        } catch (NumberFormatException e) {
+            return 8;
         }
     }
 
