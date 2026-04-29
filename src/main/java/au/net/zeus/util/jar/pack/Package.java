@@ -673,6 +673,19 @@ class Package {
 
         protected void visitInnerClassRefs(int mode, Collection<Entry> refs) {
             Package.visitInnerClassRefs(innerClasses, mode, refs);
+            // writeLocalInnerClasses stores outerClass and name explicitly for
+            // any IC that differs from the global entry (non-zero flags).
+            // Ensure those refs are present in the global CP regardless of
+            // whether the IC is "predictable".
+            if (innerClasses != null && mode != VRM_CLASSIC) {
+                for (InnerClass ic : innerClasses) {
+                    InnerClass globalIC = getGlobalInnerClass(ic.thisClass);
+                    if (!ic.equals(globalIC)) {
+                        if (ic.outerClass != null) refs.add(ic.outerClass);
+                        if (ic.name != null)       refs.add(ic.name);
+                    }
+                }
+            }
         }
 
         // Hook called by ClassReader when it's done.

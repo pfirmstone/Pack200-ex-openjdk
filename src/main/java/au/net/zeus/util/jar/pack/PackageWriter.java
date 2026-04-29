@@ -114,10 +114,15 @@ class PackageWriter extends BandStructure {
         setArchiveOptions();
         trimClassAttributes();
         collectAttributeLayouts();
+        // collectInnerClasses must run first so that the global IC table is
+        // populated and each class's innerClasses list is minimised to its
+        // diff before buildGlobalConstantPool visits refs.  This ensures that
+        // non-global (explicitly stored) IC entries have their outerClass and
+        // name entries included in the global CP.
+        collectInnerClasses();
         pkg.buildGlobalConstantPool(requiredEntries);
         setBandIndexes();
         makeNewAttributeBands();
-        collectInnerClasses();
     }
 
     /*
