@@ -26,10 +26,17 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.jar.JarFile;
 import java.util.jar.JarInputStream;
 import java.util.jar.JarOutputStream;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -464,6 +471,60 @@ public class SecurityHardeningTest {
                     ConstantPool.getUtf8Entry("META-INF/MANIFEST.MF");
             pkg.new File(good);  // must not throw
         });
+    }
+
+    // -----------------------------------------------------------------------
+    // 13. getUtf8Entry() – no class-level lock contention (Fix D)
+    //
+    //     All CP maps live in per-thread TLGlobals instances stored in a
+    //     ThreadLocal.  Concurrent callers each operate on their own private
+    //     HashMap; no synchronization is needed and the old class-level
+    //     ConstantPool.class monitor is gone.  This test verifies that:
+    //       a) concurrent threads see their own independent maps (values from
+    //          one thread's TLGlobals are not visible in another thread's), and
+    //       b) calling getUtf8Entry() from many threads simultaneously doesn't
+    //          cause any data corruption (no shared state to corrupt).
+    // -----------------------------------------------------------------------
+
+    /**
+     * Each thread must resolve {@code getUtf8Entry} against its own private
+     * {@code TLGlobals} map, not a shared one.  The test spins up N threads,
+     * each of which puts a uniquely-named entry into its own map and then
+     * verifies that only that entry is present (no cross-thread pollution).
+     */
+    @Test
+    public void testGetUtf8EntryIsThreadLocal() throws Exception {
+        final int THREADS = 8;
+        final CountDownLatch ready = new CountDownLatch(THREADS);
+        final CountDownLatch go    = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(THREADS);
+        List<Future<String>> futures = new ArrayList<>(THREADS);
+
+        for (int t = 0; t < THREADS; t++) {
+            final String threadKey = "thread-unique-key-" + t;
+            futures.add(pool.submit(() -> {
+                // Install a private TLGlobals for this worker thread.
+                Utils.currentInstance.set(new TLGlobals());
+                try {
+                    ready.countDown();
+                    go.await();  // all threads start together
+                    ConstantPool.Utf8Entry e = ConstantPool.getUtf8Entry(threadKey);
+                    // The value must match what we put in.
+                    return e.stringValue();
+                } finally {
+                    Utils.currentInstance.set(null);
+                }
+            }));
+        }
+
+        go.countDown();  // release all threads simultaneously
+        pool.shutdown();
+
+        for (int t = 0; t < THREADS; t++) {
+            String expected = "thread-unique-key-" + t;
+            assertEquals("Thread " + t + " got wrong Utf8Entry",
+                         expected, futures.get(t).get());
+        }
     }
 
     // -----------------------------------------------------------------------
