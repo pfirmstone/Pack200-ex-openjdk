@@ -518,12 +518,14 @@ public class SecurityHardeningTest {
         }
 
         go.countDown();  // release all threads simultaneously
-        pool.shutdown();
-
-        for (int t = 0; t < THREADS; t++) {
-            String expected = "thread-unique-key-" + t;
-            assertEquals("Thread " + t + " got wrong Utf8Entry",
-                         expected, futures.get(t).get());
+        try {
+            for (int t = 0; t < THREADS; t++) {
+                String expected = "thread-unique-key-" + t;
+                assertEquals("Thread " + t + " got wrong Utf8Entry",
+                             expected, futures.get(t).get());
+            }
+        } finally {
+            pool.shutdownNow();
         }
     }
 
