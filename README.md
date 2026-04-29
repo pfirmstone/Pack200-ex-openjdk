@@ -1,6 +1,15 @@
 # Pack200-ex-openjdk
 Pack200 from OpenJDK - updated to Java 27
 
+## Build Requirements
+
+- **JDK 11 or later** — The build uses the `--release` flag in the Ant `javac` task
+  (via `maven-antrun-plugin`) to compile `module-info.java` for the Java 9 multi-release
+  JAR layer.  The `--release` flag was introduced in Java 9 and is **not** available in
+  Java 8's `javac`.  Attempting to build with JDK 8 will fail with
+  `"invalid flag: --release"`.
+- **Maven 3.9.15 or later**
+
 ## Build instructions:
 Install Maven 3.9.15 or later
 Install jtreg 7.5.1 or later.
