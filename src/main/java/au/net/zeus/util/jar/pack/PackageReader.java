@@ -112,6 +112,21 @@ class PackageReader extends BandStructure {
     static final int MAX_TOTAL_SIG_CLASS_COUNT  = 16_000_000;
     static final int MAX_TOTAL_IC_TUPLE_COUNT   = 16_000_000;
     static final int MAX_TOTAL_RECORD_COMP      =  1_000_000;
+    // Total UTF-8 char-units across all Utf8 CP entries in one segment.
+    // 1 M CP entries × 65 535 chars each = ~64 G; capping at 16 M prevents
+    // an OOM from cp_Utf8_suffix.getIntTotal() returning ~2^31.
+    static final int MAX_TOTAL_UTF8_CHARS       = 16_000_000;
+    // Total interface references across all classes in one segment.
+    // JVM spec allows up to 65 535 interfaces per class × 1 M classes;
+    // 16 M is a generous cap that prevents OOM from the sum overflowing.
+    static final int MAX_TOTAL_INTERFACE_COUNT  = 16_000_000;
+    // Total repetitions across all EK_REPL attribute-band expansions in one
+    // segment (covers Exceptions, LineNumberTable, LocalVariableTable, etc.).
+    static final int MAX_TOTAL_ATTR_BAND_LENGTH = 16_000_000;
+    // Per-file in-heap buffer limit used in the fallback read path (when no
+    // resourceFileConsumer is registered).  Matches UnpackerImpl's limit for
+    // the public API path so that direct library callers are equally protected.
+    static final long MAX_FALLBACK_FILE_BYTES   = 256L * 1024 * 1024; // 256 MB
 
     /**
      * Callback invoked for each non-class-stub resource file encountered
@@ -910,7 +925,9 @@ class PackageReader extends BandStructure {
         int bigSuffixCount = 0;
 
         // Third band:  Read the char values in the unshared suffixes:
-        cp_Utf8_chars.expectLength(cp_Utf8_suffix.getIntTotal());
+        int totalUtf8Chars = cp_Utf8_suffix.getIntTotal();
+        checkCount("total_utf8_char_count", totalUtf8Chars, MAX_TOTAL_UTF8_CHARS);
+        cp_Utf8_chars.expectLength(totalUtf8Chars);
         cp_Utf8_chars.readFrom(in);
         for (int i = 0; i < len; i++) {
             int suffix = (i < SUFFIX_SKIP_1)? 0: cp_Utf8_suffix.getInt();
@@ -1123,6 +1140,14 @@ class PackageReader extends BandStructure {
                 // buffering them inside Package.File, saving a heap copy.
                 resourceFileConsumer.consume(file, file_bits.getInputStream(), size);
             } else {
+                // Fallback: buffer into Package.File (direct library callers).
+                // Guard against a crafted archive claiming a huge file size and
+                // causing an OOM via the internal ByteArrayOutputStream.
+                if (size > MAX_FALLBACK_FILE_BYTES)
+                    throw new IOException(
+                        "File '" + name.stringValue() + "' size " + size +
+                        " exceeds in-heap buffer limit (" +
+                        MAX_FALLBACK_FILE_BYTES + " bytes)");
                 long toRead = size;
                 while (toRead > 0) {
                     int nr = buf.length;
@@ -1326,7 +1351,9 @@ class PackageReader extends BandStructure {
         class_this.readFrom(in);
         class_super.readFrom(in);
         class_interface_count.readFrom(in);
-        class_interface.expectLength(class_interface_count.getIntTotal());
+        int totalIC = class_interface_count.getIntTotal();
+        checkCount("total_interface_count", totalIC, MAX_TOTAL_INTERFACE_COUNT);
+        class_interface.expectLength(totalIC);
         class_interface.readFrom(in);
         for (int i = 0; i < classes.length; i++) {
             ClassEntry   thisClass  = (ClassEntry) class_this.getRef();
@@ -2084,6 +2111,11 @@ class PackageReader extends BandStructure {
                 // Recursive call.
                 int repCount = ((IntBand)eBand).getIntTotal();
                 // Note:  getIntTotal makes an extra pass over this band.
+                // Guard against a crafted archive inflating the total count
+                // (e.g. 1 M methods × 2046 Exceptions entries each) into an
+                // OOM when the inner band allocates values[repCount].
+                checkCount("attr_repl_count(" + eBand.name() + ")",
+                           repCount, MAX_TOTAL_ATTR_BAND_LENGTH);
                 readAttrBands(e.body, repCount, forwardCounts, ab);
                 break;
             case Attribute.EK_UN:

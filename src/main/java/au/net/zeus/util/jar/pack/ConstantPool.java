@@ -50,8 +50,16 @@ class ConstantPool {
     /** Factory for Utf8 string constants.
      *  Used for well-known strings like "SourceFile", "<init>", etc.
      *  Also used to back up more complex constant pool entries, like Class.
+     *  <p>
+     *  No synchronization is needed: the backing map lives in a
+     *  {@link TLGlobals} instance that is stored in a {@link ThreadLocal}
+     *  ({@link Utils#currentInstance}) and is never shared between threads.
+     *  Adding {@code synchronized} here would lock on {@code ConstantPool.class}
+     *  — a JVM-wide monitor — causing false contention between threads that
+     *  each hold their own completely independent {@code TLGlobals}.  All other
+     *  factory methods in this class are also unsynchronized for the same reason.
      */
-    public static synchronized Utf8Entry getUtf8Entry(String value) {
+    public static Utf8Entry getUtf8Entry(String value) {
         Map<String, Utf8Entry> utf8Entries  = Utils.getTLGlobals().getUtf8Entries();
         Utf8Entry e = utf8Entries.get(value);
         if (e == null) {
