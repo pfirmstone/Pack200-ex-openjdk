@@ -121,7 +121,7 @@ final class PropMap implements SortedMap<String, String>  {
         // Define certain attribute layouts by default.
         // Do this after the previous props are put in place,
         // to allow override if necessary.
-        String propFile = "intrinsic.properties";
+        String propFile = "/au/net/zeus/util/jar/pack/intrinsic.properties";
 
         PrivilegedAction<InputStream> pa =
             () -> PackerImpl.class.getResourceAsStream(propFile);
