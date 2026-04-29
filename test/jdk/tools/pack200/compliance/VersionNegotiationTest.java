@@ -27,6 +27,7 @@
  *          class-file version tier (spec §2.1).
  *          Resources-only → 150.7; Java 8 class → 171.0; Java 17 class → 190.0;
  *          Java 9 module-info → 180.0; Java 7 + InvokeDynamic → 170.1.
+ * @requires jdk.version.major >= 17
  * @compile -XDignore.symbol.file ../Utils.java VersionNegotiationTest.java
  * @run main VersionNegotiationTest
  */

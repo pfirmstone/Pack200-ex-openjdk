@@ -26,6 +26,7 @@
  * @summary Compliance: Record attribute and all its component sub-attributes
  *          (name, type, Signature, RuntimeVisibleAnnotations) survive pack/unpack
  *          (spec §7.3, attribute index 32, requires AO_HAVE_CLASS_FLAGS_HI).
+ * @requires jdk.version.major >= 17
  * @compile -XDignore.symbol.file ../Utils.java RecordAttributeTest.java
  * @run main RecordAttributeTest
  */
