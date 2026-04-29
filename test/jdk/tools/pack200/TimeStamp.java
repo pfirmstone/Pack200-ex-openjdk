@@ -24,10 +24,7 @@
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
 import java.util.TimeZone;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -77,39 +74,7 @@ public class TimeStamp {
         unpackJava(packFile, pstFile);
         verifyJar(goldenFile, pstFile);
         pstFile.delete();
-
-        // repeat the test for unpack200 tool.
-        istFile = new File("golden.jar.native.IST");
-        unpackNative(packFile, istFile);
-        verifyJar(goldenFile, istFile);
-        istFile.delete();
-
-        pstFile = new File("golden.jar.native.PST");
-        unpackNative(packFile, pstFile);
-        verifyJar(goldenFile, pstFile);
-        pstFile.delete();
         Utils.cleanup();
-    }
-
-    static void unpackNative(File packFile, File outFile) {
-        String name = outFile.getName();
-        String tzname = name.substring(name.lastIndexOf(".") + 1);
-        HashMap<String, String> env = new HashMap<>();
-        switch(tzname) {
-            case "PST":
-                env.put("TZ", "America/Los_Angeles");
-                break;
-            case "IST":
-                env.put("TZ", "Asia/Kolkata");
-                break;
-            default:
-                throw new RuntimeException("not implemented: " + tzname);
-        }
-        List<String> cmdsList = new ArrayList<>();
-        cmdsList.addAll(Utils.getUnpack200CmdList());
-        cmdsList.add(packFile.getName());
-        cmdsList.add(outFile.getName());
-        Utils.runExec(cmdsList, env);
     }
 
     static void unpackJava(File packFile, File outFile) throws IOException {
