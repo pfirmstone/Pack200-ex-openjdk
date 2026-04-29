@@ -321,6 +321,152 @@ public class SecurityHardeningTest {
     }
 
     // -----------------------------------------------------------------------
+    // 8. Total UTF-8 char count limit (Gap 1 fix)
+    // -----------------------------------------------------------------------
+
+    /** One over the total UTF-8 char limit must be rejected. */
+    @Test
+    public void testTotalUtf8CharCountLimitRejected() {
+        try {
+            PackageReader.checkCount("total_utf8_char_count",
+                    PackageReader.MAX_TOTAL_UTF8_CHARS + 1,
+                    PackageReader.MAX_TOTAL_UTF8_CHARS);
+            fail("Expected IOException for total utf8 char count > limit");
+        } catch (IOException e) {
+            assertTrue(e.getMessage().contains("total_utf8_char_count"));
+        }
+    }
+
+    /** Exactly at the total UTF-8 char limit must be accepted. */
+    @Test
+    public void testTotalUtf8CharCountLimitAccepted() throws IOException {
+        PackageReader.checkCount("total_utf8_char_count",
+                PackageReader.MAX_TOTAL_UTF8_CHARS,
+                PackageReader.MAX_TOTAL_UTF8_CHARS);
+    }
+
+    // -----------------------------------------------------------------------
+    // 9. Total interface count limit (Gap 2 fix)
+    // -----------------------------------------------------------------------
+
+    /** One over the total interface count limit must be rejected. */
+    @Test
+    public void testTotalInterfaceCountLimitRejected() {
+        try {
+            PackageReader.checkCount("total_interface_count",
+                    PackageReader.MAX_TOTAL_INTERFACE_COUNT + 1,
+                    PackageReader.MAX_TOTAL_INTERFACE_COUNT);
+            fail("Expected IOException for total interface count > limit");
+        } catch (IOException e) {
+            assertTrue(e.getMessage().contains("total_interface_count"));
+        }
+    }
+
+    /** Exactly at the total interface count limit must be accepted. */
+    @Test
+    public void testTotalInterfaceCountLimitAccepted() throws IOException {
+        PackageReader.checkCount("total_interface_count",
+                PackageReader.MAX_TOTAL_INTERFACE_COUNT,
+                PackageReader.MAX_TOTAL_INTERFACE_COUNT);
+    }
+
+    // -----------------------------------------------------------------------
+    // 10. Total attribute-band repetition count limit (Gap 3 fix)
+    // -----------------------------------------------------------------------
+
+    /** One over the EK_REPL repetition limit must be rejected. */
+    @Test
+    public void testTotalAttrBandLengthLimitRejected() {
+        try {
+            PackageReader.checkCount("attr_repl_count(test_band)",
+                    PackageReader.MAX_TOTAL_ATTR_BAND_LENGTH + 1,
+                    PackageReader.MAX_TOTAL_ATTR_BAND_LENGTH);
+            fail("Expected IOException for attr band repetition count > limit");
+        } catch (IOException e) {
+            assertTrue(e.getMessage().contains("attr_repl_count(test_band)"));
+        }
+    }
+
+    /** Exactly at the EK_REPL repetition limit must be accepted. */
+    @Test
+    public void testTotalAttrBandLengthLimitAccepted() throws IOException {
+        PackageReader.checkCount("attr_repl_count(test_band)",
+                PackageReader.MAX_TOTAL_ATTR_BAND_LENGTH,
+                PackageReader.MAX_TOTAL_ATTR_BAND_LENGTH);
+    }
+
+    // -----------------------------------------------------------------------
+    // 11. Fallback per-file buffer limit constant (Observation B fix)
+    // -----------------------------------------------------------------------
+
+    /** MAX_FALLBACK_FILE_BYTES must be positive and consistent with the
+     *  public-API limit in UnpackerImpl. */
+    @Test
+    public void testMaxFallbackFileBytesIsReasonable() {
+        assertTrue("MAX_FALLBACK_FILE_BYTES must be positive",
+                   PackageReader.MAX_FALLBACK_FILE_BYTES > 0);
+        assertTrue("MAX_FALLBACK_FILE_BYTES must be at least 100 MB",
+                   PackageReader.MAX_FALLBACK_FILE_BYTES >= 100L * 1024 * 1024);
+        // Must match the public-API limit so direct callers get equal protection.
+        assertTrue("MAX_FALLBACK_FILE_BYTES must equal MAX_STORED_RESOURCE_BYTES",
+                   PackageReader.MAX_FALLBACK_FILE_BYTES
+                           == UnpackerImpl.MAX_STORED_RESOURCE_BYTES);
+    }
+
+    // -----------------------------------------------------------------------
+    // 12. Path-traversal bypass via File(Utf8Entry) constructor (Critical fix)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Creating a {@code Package.File} via the {@code Utf8Entry} constructor
+     * (the code path used during archive reading) must also reject ".."
+     * path-traversal components.
+     */
+    @Test(expected = IllegalArgumentException.class)
+    public void testDotDotViaUtf8EntryRejected() {
+        withTLGlobals(() -> {
+            Package pkg = new Package();
+            // Simulate what readFiles() does: look up a name from the CP.
+            ConstantPool.Utf8Entry malicious =
+                    ConstantPool.getUtf8Entry("../../etc/passwd");
+            pkg.new File(malicious);
+        });
+    }
+
+    /** Embedded ".." via Utf8Entry must also be rejected. */
+    @Test(expected = IllegalArgumentException.class)
+    public void testDotDotEmbeddedViaUtf8EntryRejected() {
+        withTLGlobals(() -> {
+            Package pkg = new Package();
+            ConstantPool.Utf8Entry malicious =
+                    ConstantPool.getUtf8Entry("foo/../../bar");
+            pkg.new File(malicious);
+        });
+    }
+
+    /** Absolute path via Utf8Entry must be rejected. */
+    @Test(expected = IllegalArgumentException.class)
+    public void testAbsolutePathViaUtf8EntryRejected() {
+        withTLGlobals(() -> {
+            Package pkg = new Package();
+            ConstantPool.Utf8Entry malicious =
+                    ConstantPool.getUtf8Entry("/etc/shadow");
+            pkg.new File(malicious);
+        });
+    }
+
+    /** A normal relative path via Utf8Entry must be accepted. */
+    @Test
+    public void testNormalRelativePathViaUtf8EntryAccepted() {
+        withTLGlobals(() -> {
+            Package pkg = new Package();
+            ConstantPool.Utf8Entry good =
+                    ConstantPool.getUtf8Entry("META-INF/MANIFEST.MF");
+            pkg.new File(good);  // must not throw
+        });
+    }
+
+    // -----------------------------------------------------------------------
     // 7. Round-trip pack / unpack using the library's own JAR
     //
     //    This acts as a regression test confirming the security hardening

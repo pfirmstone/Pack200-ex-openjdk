@@ -769,6 +769,10 @@ class Package {
 
         File(Utf8Entry name) {
             this.name = name;
+            // Validate the name from the archive, just as the String constructor
+            // does, to prevent zip-slip / path-traversal attacks via crafted
+            // archives that supply a Utf8 CP entry with a ".." component.
+            fixupFileName(name.stringValue());
             this.nameString = name.stringValue();
             // caller must fill in contents
         }
