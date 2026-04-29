@@ -43,6 +43,9 @@
     <property name="version"   value="-1.14.0-SNAPSHOT"/>
     <property name="pack.jar"  value="${basedir}/target/Pack200-ex-openjdk${version}.jar"/>
 
+    <!-- Compiled test library classes (OutputAnalyzer, etc.) -->
+    <property name="test.lib.classes" location="${basedir}/target/test-lib-classes"/>
+
     <!-- jtreg output directories -->
     <property name="jtreg.report.dir" location="${basedir}/target/jtreg/report"/>
     <property name="jtreg.work.dir"   location="${basedir}/target/jtreg/work"/>
@@ -75,7 +78,7 @@
             <arg value="-workDir:${jtreg.work.dir}"/>
             <arg value="-jdk:${jdk.home}"/>
             <arg value="-exclude:${problem.list}"/>
-            <arg value="-cpa:${pack.jar}"/>
+            <arg value="-cpa:${pack.jar}${path.separator}${test.lib.classes}"/>
             <arg value="-vmoption:-Dpack.home=${pack.home}"/>
             <arg value="-vmoption:-Dpack.version=${version}"/>
             <arg value="${test.dir}"/>
