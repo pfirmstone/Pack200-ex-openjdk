@@ -77,7 +77,17 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
 
     public UnpackerImpl() {}
 
-
+    /**
+     * Maximum number of bytes that a single STORED (non-deflated) entry
+     * may occupy in the heap-based CRC-computation buffer.  Entries larger
+     * than this limit are rejected with an IOException rather than causing
+     * an OutOfMemoryError.  256 MB is generous for any class file or
+     * typical JAR resource; callers needing larger resources should use
+     * DEFLATED entries (which are streamed and never fully buffered here).
+     * <p>
+     * Package-private so that SecurityHardeningTest can verify the threshold.
+     */
+    static final long MAX_STORED_RESOURCE_BYTES = 256L * 1024 * 1024; // 256 MB
 
     /**
      * Get the set of options for the pack and unpack engines.
@@ -266,6 +276,11 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
                 if (needCRC) {
                     // STORED entry: must supply CRC and size before putNextEntry,
                     // so buffer once through crcOut to compute both.
+                    if (size > MAX_STORED_RESOURCE_BYTES)
+                        throw new IOException(
+                            "STORED resource entry '" + name + "' size " + size +
+                            " exceeds in-memory buffer limit (" +
+                            MAX_STORED_RESOURCE_BYTES + " bytes)");
                     crc.reset();
                     bufOut.reset();
                     transferBytes(data, crcOut, size);
@@ -322,6 +337,11 @@ public class UnpackerImpl extends TLGlobals implements Pack200.Unpacker {
                     bufOut.reset();
                     new ClassWriter(cls, crcOut).write();
                     classesToWrite.remove(cls);  // for an error check
+                    if (bufOut.size() > MAX_STORED_RESOURCE_BYTES)
+                        throw new IOException(
+                            "STORED class entry '" + name + "' size " + bufOut.size() +
+                            " exceeds in-memory buffer limit (" +
+                            MAX_STORED_RESOURCE_BYTES + " bytes)");
                     if (verbose > 0)
                         Utils.log.info("stored size="+bufOut.size()+" and crc="+crc.getValue());
                     je.setMethod(JarEntry.STORED);

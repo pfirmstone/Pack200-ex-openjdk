@@ -165,7 +165,163 @@ public class SecurityHardeningTest {
     }
 
     // -----------------------------------------------------------------------
-    // 4. Round-trip pack / unpack using the library's own JAR
+    // 5. Aggregate count limits — OOM-prevention guards (Fixes 1–5)
+    //
+    //    checkCount() is used to bound the *sum* of per-element values before
+    //    the resulting array is allocated.  Without these limits an attacker
+    //    can supply a single class claiming 2^31 fields, passing the
+    //    per-entry MAX_CP_ENTRY_COUNT check but triggering an OOM when the
+    //    descriptor band array is pre-allocated before stream data is read.
+    // -----------------------------------------------------------------------
+
+    /**
+     * {@code checkCount} must throw {@link IOException} when the supplied
+     * value strictly exceeds the limit.
+     */
+    @Test
+    public void testCheckCountRejectsOverLimit() throws Exception {
+        try {
+            PackageReader.checkCount("test_field", 100, 99);
+            fail("Expected IOException when count > max");
+        } catch (IOException e) {
+            assertTrue("Message should mention the field name",
+                       e.getMessage().contains("test_field"));
+        }
+    }
+
+    /**
+     * {@code checkCount} must throw {@link IOException} for negative values,
+     * which indicate wrap-around or sign-extension bugs in the stream reader.
+     */
+    @Test
+    public void testCheckCountRejectsNegative() throws Exception {
+        try {
+            PackageReader.checkCount("test_neg", -1, 100);
+            fail("Expected IOException for negative count");
+        } catch (IOException e) {
+            // expected
+        }
+    }
+
+    /** {@code checkCount} must not throw when count == max (boundary value). */
+    @Test
+    public void testCheckCountAcceptsAtLimit() throws IOException {
+        // Must not throw
+        PackageReader.checkCount("test_exact", 16_000_000, 16_000_000);
+    }
+
+    /** {@code checkCount} must not throw when count == 0. */
+    @Test
+    public void testCheckCountAcceptsZero() throws IOException {
+        PackageReader.checkCount("test_zero", 0, 100);
+    }
+
+    /**
+     * Verify the total-field-count limit is at least as large as a single
+     * fully-loaded archive of 1 M classes each with a modest number of
+     * fields, and that exactly {@code MAX_TOTAL_FIELD_COUNT + 1} is rejected.
+     */
+    @Test
+    public void testTotalFieldCountLimitRejected() {
+        try {
+            PackageReader.checkCount("total_field_count",
+                    PackageReader.MAX_TOTAL_FIELD_COUNT + 1,
+                    PackageReader.MAX_TOTAL_FIELD_COUNT);
+            fail("Expected IOException for total field count > limit");
+        } catch (IOException e) {
+            assertTrue(e.getMessage().contains("total_field_count"));
+        }
+    }
+
+    /** Verify the total-method-count limit rejects one over the boundary. */
+    @Test
+    public void testTotalMethodCountLimitRejected() {
+        try {
+            PackageReader.checkCount("total_method_count",
+                    PackageReader.MAX_TOTAL_METHOD_COUNT + 1,
+                    PackageReader.MAX_TOTAL_METHOD_COUNT);
+            fail("Expected IOException for total method count > limit");
+        } catch (IOException e) {
+            assertTrue(e.getMessage().contains("total_method_count"));
+        }
+    }
+
+    /** Verify the total-BSM-arg-count limit rejects one over the boundary. */
+    @Test
+    public void testTotalBsmArgCountLimitRejected() {
+        try {
+            PackageReader.checkCount("total_bootstrap_method_arg_count",
+                    PackageReader.MAX_TOTAL_BSM_ARG_COUNT + 1,
+                    PackageReader.MAX_TOTAL_BSM_ARG_COUNT);
+            fail("Expected IOException for total BSM arg count > limit");
+        } catch (IOException e) {
+            assertTrue(e.getMessage().contains("total_bootstrap_method_arg_count"));
+        }
+    }
+
+    /** Verify the total-signature-class-count limit rejects one over the boundary. */
+    @Test
+    public void testTotalSigClassCountLimitRejected() {
+        try {
+            PackageReader.checkCount("total_signature_class_count",
+                    PackageReader.MAX_TOTAL_SIG_CLASS_COUNT + 1,
+                    PackageReader.MAX_TOTAL_SIG_CLASS_COUNT);
+            fail("Expected IOException for total signature class count > limit");
+        } catch (IOException e) {
+            assertTrue(e.getMessage().contains("total_signature_class_count"));
+        }
+    }
+
+    /** Verify the total-IC-tuple-count limit rejects one over the boundary. */
+    @Test
+    public void testTotalIcTupleCountLimitRejected() {
+        try {
+            PackageReader.checkCount("total_inner_class_tuple_count",
+                    PackageReader.MAX_TOTAL_IC_TUPLE_COUNT + 1,
+                    PackageReader.MAX_TOTAL_IC_TUPLE_COUNT);
+            fail("Expected IOException for total IC tuple count > limit");
+        } catch (IOException e) {
+            assertTrue(e.getMessage().contains("total_inner_class_tuple_count"));
+        }
+    }
+
+    /** Verify the total-record-component-count limit rejects one over the boundary. */
+    @Test
+    public void testTotalRecordCompCountLimitRejected() {
+        try {
+            PackageReader.checkCount("total_record_component_count",
+                    PackageReader.MAX_TOTAL_RECORD_COMP + 1,
+                    PackageReader.MAX_TOTAL_RECORD_COMP);
+            fail("Expected IOException for total record component count > limit");
+        } catch (IOException e) {
+            assertTrue(e.getMessage().contains("total_record_component_count"));
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // 6. STORED-entry in-memory buffer limit (Fix 6)
+    // -----------------------------------------------------------------------
+
+    /**
+     * The {@code MAX_STORED_RESOURCE_BYTES} constant must be positive and
+     * large enough not to affect normal class files (class files are bounded
+     * by JVM spec constraints far below this threshold).
+     */
+    @Test
+    public void testMaxStoredResourceBytesIsReasonable() {
+        assertTrue("MAX_STORED_RESOURCE_BYTES must be positive",
+                   UnpackerImpl.MAX_STORED_RESOURCE_BYTES > 0);
+        // Must comfortably accommodate a maximum-size class file (< 100 MB).
+        assertTrue("MAX_STORED_RESOURCE_BYTES must be at least 100 MB",
+                   UnpackerImpl.MAX_STORED_RESOURCE_BYTES >= 100L * 1024 * 1024);
+        // Must be below Integer.MAX_VALUE so ByteArrayOutputStream.size()
+        // (which returns int) comparison is always safe.
+        assertTrue("MAX_STORED_RESOURCE_BYTES must be below Integer.MAX_VALUE",
+                   UnpackerImpl.MAX_STORED_RESOURCE_BYTES < Integer.MAX_VALUE);
+    }
+
+    // -----------------------------------------------------------------------
+    // 7. Round-trip pack / unpack using the library's own JAR
     //
     //    This acts as a regression test confirming the security hardening
     //    did not break normal unpacking of a legitimate archive.

@@ -93,6 +93,26 @@ class PackageReader extends BandStructure {
     // value is multiplied or used as an array length.
     private static final int MAX_CASE_COUNT         = MAX_CODE_BYTES;
 
+    // Maximum *aggregate* counts derived by summing per-element values across
+    // an entire archive segment.  These caps prevent a crafted archive from
+    // claiming a single enormous sum (e.g. one class with 2^31 fields) that
+    // passes the per-element check but causes an OutOfMemoryError when the
+    // resulting array is allocated — before any stream data has been read.
+    //
+    // The limits are generous enough to accommodate any legitimate archive
+    // (16 M members / BSM args / signature class-parts / IC tuples) while
+    // making DoS impractical.  Record components get the same 1 M ceiling
+    // used for individual CP entries.
+    //
+    // Package-private so that SecurityHardeningTest can verify the thresholds
+    // without using reflection.
+    static final int MAX_TOTAL_FIELD_COUNT      = 16_000_000;
+    static final int MAX_TOTAL_METHOD_COUNT     = 16_000_000;
+    static final int MAX_TOTAL_BSM_ARG_COUNT    = 16_000_000;
+    static final int MAX_TOTAL_SIG_CLASS_COUNT  = 16_000_000;
+    static final int MAX_TOTAL_IC_TUPLE_COUNT   = 16_000_000;
+    static final int MAX_TOTAL_RECORD_COMP      =  1_000_000;
+
     /**
      * Callback invoked for each non-class-stub resource file encountered
      * during {@link #readFiles()}.  When a consumer is set the file's raw
@@ -579,8 +599,9 @@ class PackageReader extends BandStructure {
     }
 
     /** Throws IOException if {@code count} exceeds {@code max}, to prevent
-     *  resource exhaustion from adversarially large count fields. */
-    private static void checkCount(String field, int count, int max)
+     *  resource exhaustion from adversarially large count fields.
+     *  Package-private so that SecurityHardeningTest can verify thresholds. */
+    static void checkCount(String field, int count, int max)
             throws IOException {
         if (count < 0 || count > max)
             throw new IOException("Archive field '" + field +
@@ -810,6 +831,8 @@ class PackageReader extends BandStructure {
                 cp_BootstrapMethod_arg_count.expectLength(cpMap.length);
                 cp_BootstrapMethod_arg_count.readFrom(in);
                 int totalArgCount = cp_BootstrapMethod_arg_count.getIntTotal();
+                checkCount("total_bootstrap_method_arg_count",
+                           totalArgCount, MAX_TOTAL_BSM_ARG_COUNT);
                 cp_BootstrapMethod_arg.expectLength(totalArgCount);
                 cp_BootstrapMethod_arg.readFrom(in);
                 cp_BootstrapMethod_arg.setIndex(getCPIndex(CONSTANT_LoadableValue));
@@ -991,7 +1014,10 @@ class PackageReader extends BandStructure {
             numSigClasses[i] = ConstantPool.countClassParts(formRef);
         }
         cp_Signature_form.resetForSecondPass();
-        cp_Signature_classes.expectLength(getIntTotal(numSigClasses));
+        int totalSigClasses = getIntTotal(numSigClasses);
+        checkCount("total_signature_class_count",
+                   totalSigClasses, MAX_TOTAL_SIG_CLASS_COUNT);
+        cp_Signature_classes.expectLength(totalSigClasses);
         cp_Signature_classes.readFrom(in);
         cp_Signature_classes.setIndex(getCPIndex(CONSTANT_Class));
         utf8Signatures = new HashMap<>();
@@ -1492,7 +1518,9 @@ class PackageReader extends BandStructure {
 
         // Make a pre-pass over field and method counts to size the descrs:
         int totalNF = class_field_count.getIntTotal();
+        checkCount("total_field_count", totalNF, MAX_TOTAL_FIELD_COUNT);
         int totalNM = class_method_count.getIntTotal();
+        checkCount("total_method_count", totalNM, MAX_TOTAL_METHOD_COUNT);
         field_descr.expectLength(totalNF);
         method_descr.expectLength(totalNM);
         if (verbose > 1)  Utils.log.fine("expecting #fields="+totalNF+
@@ -1889,6 +1917,8 @@ class PackageReader extends BandStructure {
                     class_InnerClasses_N.expectLength(totalCount);
                     class_InnerClasses_N.readFrom(in);
                     int tupleCount = class_InnerClasses_N.getIntTotal();
+                    checkCount("total_inner_class_tuple_count",
+                               tupleCount, MAX_TOTAL_IC_TUPLE_COUNT);
                     class_InnerClasses_RC.expectLength(tupleCount);
                     class_InnerClasses_RC.readFrom(in);
                     class_InnerClasses_F.expectLength(tupleCount);
@@ -1904,6 +1934,8 @@ class PackageReader extends BandStructure {
                     class_Record_N.expectLength(totalCount);
                     class_Record_N.readFrom(in);
                     int compCount = class_Record_N.getIntTotal();
+                    checkCount("total_record_component_count",
+                               compCount, MAX_TOTAL_RECORD_COMP);
                     class_Record_name_RU.expectLength(compCount);
                     class_Record_name_RU.readFrom(in);
                     class_Record_type_RS.expectLength(compCount);
