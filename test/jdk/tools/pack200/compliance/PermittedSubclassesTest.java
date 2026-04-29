@@ -25,6 +25,7 @@
  * @test C-05
  * @summary Compliance: PermittedSubclasses attribute on sealed classes survives
  *          pack/unpack (spec §7.1, attribute index 33, requires AO_HAVE_CLASS_FLAGS_HI).
+ * @requires jdk.version.major >= 17
  * @compile -XDignore.symbol.file ../Utils.java PermittedSubclassesTest.java
  * @run main PermittedSubclassesTest
  */
