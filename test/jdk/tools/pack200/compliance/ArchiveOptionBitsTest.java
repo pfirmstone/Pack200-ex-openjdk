@@ -28,6 +28,7 @@
  *          that AO_HAVE_CP_MODULE_DYNAMIC (bit 13) is NOT set for a module-info-only
  *          JAR (module-info is treated as a raw resource by the packer), and that
  *          AO_UNUSED_MBZ bits are always zero.
+ * @requires jdk.version.major >= 17
  * @compile -XDignore.symbol.file ../Utils.java ArchiveOptionBitsTest.java
  * @run main ArchiveOptionBitsTest
  */

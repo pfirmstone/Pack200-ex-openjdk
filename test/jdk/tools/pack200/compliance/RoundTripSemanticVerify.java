@@ -30,6 +30,7 @@
  *            - NestHost / NestMembers with the correct class references
  *            - Module attribute with the correct module name
  *          (spec §10.2)
+ * @requires jdk.version.major >= 17
  * @compile -XDignore.symbol.file ../Utils.java RoundTripSemanticVerify.java
  * @run main RoundTripSemanticVerify
  */

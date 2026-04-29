@@ -117,6 +117,19 @@
 tools/pack200/CommandLineTests.java                             8059906 generic-all
 tools/pack200/Java17Tests.java                                  generic-all
 
+# The following compliance tests compile Java 17+ language features (records,
+# sealed classes) using --release 17.  They carry @requires jdk.version.major >= 17
+# so jtreg skips them automatically on JDK 11-16; no explicit exclusion is needed
+# here for JDK 17+.  Entries below are kept as documentation only.
+#
+# tools/pack200/compliance/ArchiveOptionBitsTest.java   (records + sealed, --release 17)
+# tools/pack200/compliance/BandPhaseIntegrityTest.java  (records + sealed, --release 17)
+# tools/pack200/compliance/RecordAttributeTest.java     (records, --release 17)
+# tools/pack200/compliance/PermittedSubclassesTest.java (sealed classes, --release 17)
+# tools/pack200/compliance/MultiClassVersionTest.java   (mixed versions incl. --release 17)
+# tools/pack200/compliance/RoundTripSemanticVerify.java (mixed versions incl. --release 17)
+# tools/pack200/compliance/VersionNegotiationTest.java  (mixed versions incl. --release 17)
+
 ############################################################################
 
 

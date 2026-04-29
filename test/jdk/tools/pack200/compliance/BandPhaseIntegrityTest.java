@@ -27,6 +27,7 @@
  *          bands) complete their phase lifecycle (EXPECT→READ→DISBURSE→DONE)
  *          without assertion errors (spec §11).  Exercises archives both with
  *          and without AO_HAVE_CLASS_FLAGS_HI.
+ * @requires jdk.version.major >= 17
  * @compile -XDignore.symbol.file ../Utils.java BandPhaseIntegrityTest.java
  * @run main BandPhaseIntegrityTest
  */

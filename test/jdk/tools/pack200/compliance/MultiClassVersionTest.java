@@ -28,6 +28,7 @@
  *          highest), and emits the .ClassFile.version pseudo-attribute for
  *          classes whose version differs from the segment default (spec §2.1,
  *          §7.1 index 24).
+ * @requires jdk.version.major >= 17
  * @compile -XDignore.symbol.file ../Utils.java MultiClassVersionTest.java
  * @run main MultiClassVersionTest
  */
