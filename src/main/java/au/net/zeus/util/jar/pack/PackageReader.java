@@ -75,7 +75,11 @@ class PackageReader extends BandStructure {
     // JVM spec limit for bytecode in a single Code attribute.
     static final int MAX_CODE_BYTES                 = 65_535;
     // Maximum number of pack200 segments accepted from a single stream.
-    static final int MAX_SEGMENT_COUNT              = 1_000;
+    // This limit guards against DoS via crafted archives; each segment adds
+    // only ~50-100 bytes of header overhead, so 10,000 segments supports
+    // archives up to approximately 1 TB with a typical segment-size target.
+    // The old value of 1,000 was insufficient for large modern JDK archives.
+    static final int MAX_SEGMENT_COUNT              = 10_000;
     // Maximum UTF-8 string length (chars) that a single CP entry may claim.
     private static final int MAX_UTF8_CHARS         = 65_535;
     // Maximum bytes of band-header meta-coding in a single archive segment.
