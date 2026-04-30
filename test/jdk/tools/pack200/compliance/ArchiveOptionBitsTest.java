@@ -26,8 +26,9 @@
  * @summary Compliance: archive option bits are set / cleared correctly (spec §3).
  *          Verifies AO_HAVE_CLASS_FLAGS_HI (bit 9) for records and sealed classes,
  *          that AO_HAVE_CP_MODULE_DYNAMIC (bit 13) is NOT set for a module-info-only
- *          JAR (module-info is treated as a raw resource by the packer), and that
- *          AO_UNUSED_MBZ bits are always zero.
+ *          JAR (module-info is treated as a raw resource by the packer),
+ *          that AO_HAVE_RC_ATTRS (bit 14) is set iff record component sub-attributes
+ *          are present, and that AO_UNUSED_MBZ bits (15+) are always zero.
  * @requires jdk.version.major >= 17
  * @compile -XDignore.symbol.file ../Utils.java ArchiveOptionBitsTest.java
  * @run main ArchiveOptionBitsTest
@@ -62,7 +63,10 @@ public class ArchiveOptionBitsTest {
     // Option bit constants (mirror au.net.zeus.util.jar.pack.Constants)
     static final int AO_HAVE_CLASS_FLAGS_HI    = 1 << 9;   // 512
     static final int AO_HAVE_CP_MODULE_DYNAMIC = 1 << 13;  // 8192
-    static final int AO_UNUSED_MBZ             = (-1) << 14;
+    /** Bit 14: set when any record component carries a sub-attribute (Signature, RVA, …). */
+    static final int AO_HAVE_RC_ATTRS          = 1 << 14;  // 16384
+    /** Bits 15 and above are reserved and must always be zero. */
+    static final int AO_UNUSED_MBZ             = (-1) << 15;
 
     public static void main(String... args) throws Exception {
         testPlainJava8NoRecordNoModule();
@@ -70,6 +74,8 @@ public class ArchiveOptionBitsTest {
         testSealedClassSetsClassFlagsHi();
         testModuleInfoSetsCpModuleDynamic();
         testUnusedBitsMustBeZeroOnAllCases();
+        testGenericRecordSetsRCAttrsBit();
+        testPlainRecordDoesNotSetRCAttrsBit();
         Utils.cleanup();
         System.out.println("C-02 ArchiveOptionBitsTest: ALL PASSED");
     }
@@ -197,6 +203,56 @@ public class ArchiveOptionBitsTest {
         }
         assertUnusedZero("resources-only", getArchiveOptions(rJar));
         System.out.println("  testUnusedBitsMustBeZeroOnAllCases: PASS");
+    }
+
+    /**
+     * A JAR whose record components carry sub-attributes (Signature) MUST have
+     * AO_HAVE_RC_ATTRS (bit 14) set so the rc_attr_bands are written and read.
+     * AO_HAVE_CLASS_FLAGS_HI (bit 9) must also be set because the class is a record.
+     */
+    static void testGenericRecordSetsRCAttrsBit() throws Exception {
+        List<String> src = new ArrayList<>();
+        src.add("public record GenericC02<T>(T value) {}");
+        File java = new File("GenericC02.java");
+        Utils.createFile(java, src);
+        Utils.compiler("--release", "17", java.getName());
+
+        File jar = new File("generic-c02.jar");
+        Utils.jar("cvf", jar.getName(), "GenericC02.class");
+
+        int opts = getArchiveOptions(jar);
+        assertBitSet("Generic record: AO_HAVE_CLASS_FLAGS_HI must be set",
+                opts, AO_HAVE_CLASS_FLAGS_HI);
+        assertBitSet("Generic record: AO_HAVE_RC_ATTRS must be set (Signature sub-attr)",
+                opts, AO_HAVE_RC_ATTRS);
+        assertUnusedZero("Generic record JAR", opts);
+        System.out.println("  testGenericRecordSetsRCAttrsBit: PASS");
+    }
+
+    /**
+     * A JAR containing a plain record (no component sub-attributes) must NOT
+     * have AO_HAVE_RC_ATTRS (bit 14) set, preserving backward compatibility
+     * with Pack200 readers that predate the RC-attrs band.
+     */
+    static void testPlainRecordDoesNotSetRCAttrsBit() throws Exception {
+        List<String> src = new ArrayList<>();
+        src.add("public record PlainC02(int x, int y) {}");
+        File java = new File("PlainC02.java");
+        Utils.createFile(java, src);
+        Utils.compiler("--release", "17", java.getName());
+
+        File jar = new File("plain-c02.jar");
+        Utils.jar("cvf", jar.getName(), "PlainC02.class");
+
+        int opts = getArchiveOptions(jar);
+        // Plain record still needs AO_HAVE_CLASS_FLAGS_HI for the Record class attribute
+        assertBitSet("Plain record: AO_HAVE_CLASS_FLAGS_HI must be set",
+                opts, AO_HAVE_CLASS_FLAGS_HI);
+        // No sub-attributes on components → AO_HAVE_RC_ATTRS must be clear
+        assertBitClear("Plain record: AO_HAVE_RC_ATTRS must be clear (no RC sub-attrs)",
+                opts, AO_HAVE_RC_ATTRS);
+        assertUnusedZero("Plain record JAR", opts);
+        System.out.println("  testPlainRecordDoesNotSetRCAttrsBit: PASS");
     }
 
     // -------------------------------------------------------------------------
