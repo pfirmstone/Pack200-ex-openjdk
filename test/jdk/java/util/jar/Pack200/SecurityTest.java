@@ -25,6 +25,7 @@
  * @test
  * @bug 8179645
  * @summary Verify Pack200 initialization with security manager
+ * @requires jdk.version.major < 17
  * @run main/othervm/policy=policy SecurityTest
  */
 
