@@ -139,15 +139,6 @@
                         <id>compile-test-lib</id>
                         <phase>test-compile</phase>
                         <goals><goal>testCompile</goal></goals>
-                        <!--
-                          combine.self="override" prevents inheriting the global
-                          release=8 setting so we can use -source/-target instead.
-                          Using "release 8" would restrict API to Java 8 only and cause
-                          cascade failures for test/lib files that reference JDK 9+ APIs
-                          (e.g. JFR, JMX containers).  With -source 8 -target 8 the compiler
-                          allows any JDK API available at build time while still producing
-                          Java 8 class files, matching the original Ant task behaviour.
-                        -->
                         <configuration combine.self="override">
                             <compileSourceRoots>
                                 <compileSourceRoot>${basedir}/test/lib</compileSourceRoot>
@@ -157,17 +148,6 @@
                             <target>8</target>
                             <failOnError>false</failOnError>
                             <useIncrementalCompilation>false</useIncrementalCompilation>
-                            <!--
-                              Exclude files that cannot compile with -source 8 or reference
-                              APIs removed in newer JDKs.  Excluded files are not needed for
-                              the Pack200 jtreg tests.
-                            -->
-                            <testExcludes>
-                                <!-- diamond operator with anonymous inner class: Java 9+ only -->
-                                <testExclude>**/util/FileUtils.java</testExclude>
-                                <!-- uses jdk.internal.platform.Metrics API removed post-JDK 14 -->
-                                <testExclude>**/cgroup/MetricsTester.java</testExclude>
-                            </testExcludes>
                         </configuration>
                     </execution>
                 </executions>
