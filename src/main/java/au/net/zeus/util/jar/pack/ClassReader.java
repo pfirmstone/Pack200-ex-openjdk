@@ -614,9 +614,7 @@ class ClassReader {
             int numArgs = readUnsignedShort();
             rawArgRefs[i] = new Entry[numArgs];
             for (int j = 0; j < numArgs; j++) {
-                Entry e = readRef();           // may be UnresolvedEntry for CONSTANT_Dynamic
-                checkTag(e, CONSTANT_LoadableValue);
-                rawArgRefs[i][j] = e;
+                rawArgRefs[i][j] = checkTag(readRef(), CONSTANT_LoadableValue);
             }
         }
 
