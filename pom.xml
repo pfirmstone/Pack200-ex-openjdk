@@ -157,6 +157,12 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.1.2</version>
             </plugin>
+            <!--
+              IMPORTANT: Building this project requires JDK 11 or later.
+              The javac task below passes the "--release" flag (introduced in Java 9)
+              to compile the module-info.java for the Java 9 multi-release JAR layer.
+              Attempting to build with JDK 8 will fail with "invalid flag: --release".
+            -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>
