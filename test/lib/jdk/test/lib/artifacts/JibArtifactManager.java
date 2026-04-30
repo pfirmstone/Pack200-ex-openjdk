@@ -75,9 +75,12 @@ public class JibArtifactManager implements ArtifactManager {
             ClassLoader oldContextLoader = currentThread.getContextClassLoader();
             currentThread.setContextClassLoader(classLoader);
 
-            Class jibServiceFactory = classLoader.loadClass(JIB_SERVICE_FACTORY);
+            Class<?> jibServiceFactory = classLoader.loadClass(JIB_SERVICE_FACTORY);
             try {
                 Object jibArtifactInstaller = jibServiceFactory.getMethod("createJibArtifactInstaller").invoke(null);
+                if (jibArtifactInstaller == null) {
+                    throw new ClassNotFoundException("createJibArtifactInstaller returned null");
+                }
                 return new JibArtifactManager(jibArtifactInstaller, classLoader);
             } finally {
                 currentThread.setContextClassLoader(oldContextLoader);
