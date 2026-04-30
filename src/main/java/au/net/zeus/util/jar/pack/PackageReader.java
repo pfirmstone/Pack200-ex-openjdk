@@ -885,9 +885,14 @@ class PackageReader extends BandStructure {
                                 argRefs[j] = curLV.getEntry(rawCode);
                             } else {
                                 // Placeholder until CONSTANT_Dynamic is in LoadableValue.
-                                // Each (i,j) pair is unique to avoid intern-key collisions.
+                                // The placeholder must not collide with any real loadable
+                                // constant used as a BSM arg in another BSM in this archive.
+                                // We use a string containing null bytes (\u0000), which
+                                // cannot appear in valid Java identifiers, class names, or
+                                // method descriptors, and include the unique (i,j) index to
+                                // prevent two deferred BSMs sharing an intern entry.
                                 argRefs[j] = ConstantPool.getUtf8Entry(
-                                        "BSMArg:" + i + "," + j);
+                                        "\u0000BSMDeferred\u0000" + i + "\u0000" + j);
                                 hasDeferredArgs = true;
                             }
                         }
