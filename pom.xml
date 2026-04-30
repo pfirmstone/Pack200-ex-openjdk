@@ -158,12 +158,40 @@
                         <goals><goal>run</goal></goals>
                         <configuration>
                             <target>
-                                <!-- Java 9: compile module-info.java -->
+                                <!--
+                                  Locate the javac executable from the JDK that Maven is running
+                                  under, so the build works whether Maven is invoked with a JDK 8
+                                  JRE or a JDK 11+ JDK.
+
+                                  On JDK 8, java.home points at the JRE directory
+                                  (e.g. .../zulu-8/jre) and tools.jar lives one level up in
+                                  .../zulu-8/lib/tools.jar.  javac is therefore at
+                                  ${java.home}/../bin/javac.
+
+                                  On JDK 9+, java.home points directly at the JDK directory and
+                                  there is no tools.jar; javac is at ${java.home}/bin/javac.
+                                -->
+                                <condition property="javac.exe"
+                                           value="${java.home}/../bin/javac">
+                                    <available file="${java.home}/../lib/tools.jar"/>
+                                </condition>
+                                <property name="javac.exe" value="${java.home}/bin/javac"/>
+
+                                <!-- Java 9: compile module-info.java.
+                                     Uses fork=true so the compiler is resolved from the explicit
+                                     executable path above rather than from the Ant classpath.
+                                     failonerror=false: on JDK 8 the javac "release 9" flag is
+                                     unavailable, so the compilation is skipped silently and the
+                                     resulting JAR simply has no module descriptor (which is fine
+                                     for JDK 8 runtimes). -->
                                 <mkdir dir="${project.build.directory}/java9"/>
                                 <javac srcdir="${basedir}/src/main/java9"
                                        destdir="${project.build.directory}/java9"
                                        classpath="${project.build.outputDirectory}"
-                                       includeantruntime="false">
+                                       includeantruntime="false"
+                                       fork="true"
+                                       executable="${javac.exe}"
+                                       failonerror="false">
                                     <compilerarg value="--release"/>
                                     <compilerarg value="9"/>
                                     <compilerarg value="--patch-module"/>
@@ -182,6 +210,17 @@
                         <goals><goal>run</goal></goals>
                         <configuration>
                             <target>
+                                <!--
+                                  Locate javac executable (same logic as compile-mrjar).
+                                  On JDK 8 JRE java.home points at the JRE directory;
+                                  javac lives one level up.  On JDK 9+ java.home is the JDK.
+                                -->
+                                <condition property="javac.exe"
+                                           value="${java.home}/../bin/javac">
+                                    <available file="${java.home}/../lib/tools.jar"/>
+                                </condition>
+                                <property name="javac.exe" value="${java.home}/bin/javac"/>
+
                                 <mkdir dir="${project.build.directory}/test-lib-classes"/>
                                 <!--
                                   Compile test/lib sources. failonerror="false" is intentional:
@@ -193,6 +232,8 @@
                                 <javac srcdir="${basedir}/test/lib"
                                        destdir="${project.build.directory}/test-lib-classes"
                                        includeantruntime="false"
+                                       fork="true"
+                                       executable="${javac.exe}"
                                        failonerror="false">
                                     <compilerarg value="-source"/>
                                     <compilerarg value="8"/>
