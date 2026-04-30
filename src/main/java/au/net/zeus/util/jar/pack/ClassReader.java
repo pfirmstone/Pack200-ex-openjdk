@@ -598,16 +598,90 @@ class ClassReader {
     }
 
     void readBootstrapMethods(Class cls) throws IOException {
-        BootstrapMethodEntry[] bsms = new BootstrapMethodEntry[readUnsignedShort()];
-        for (int i = 0; i < bsms.length; i++) {
-            MethodHandleEntry bsmRef = (MethodHandleEntry) readRef(CONSTANT_MethodHandle);
-            Entry[] argRefs = new Entry[readUnsignedShort()];
-            for (int j = 0; j < argRefs.length; j++) {
-                argRefs[j] = readRef(CONSTANT_LoadableValue);
+        int numBsms = readUnsignedShort();
+
+        // Pass 1: collect raw BSM table data.
+        // Bootstrap method arguments that are CONSTANT_Dynamic entries are
+        // still represented as UnresolvedEntry at this point because they
+        // depend on the BootstrapMethods table itself, which has not been
+        // set on the class yet.  Using readRef() directly (rather than the
+        // readRef(tag) overload that asserts no UnresolvedEntry) is
+        // intentional here; checkTag() still validates the entry type.
+        MethodHandleEntry[] rawBsmRefs = new MethodHandleEntry[numBsms];
+        Entry[][] rawArgRefs = new Entry[numBsms][];
+        for (int i = 0; i < numBsms; i++) {
+            rawBsmRefs[i] = (MethodHandleEntry) readRef(CONSTANT_MethodHandle);
+            int numArgs = readUnsignedShort();
+            rawArgRefs[i] = new Entry[numArgs];
+            for (int j = 0; j < numArgs; j++) {
+                Entry e = readRef();           // may be UnresolvedEntry for CONSTANT_Dynamic
+                checkTag(e, CONSTANT_LoadableValue);
+                rawArgRefs[i][j] = e;
             }
-            bsms[i] = ConstantPool.getBootstrapMethodEntry(bsmRef, argRefs);
+        }
+
+        // Pass 2: intern BootstrapMethodEntry objects in dependency order.
+        // A CONSTANT_Dynamic arg (UnresolvedEntry) references another BSM by
+        // index; that BSM must be resolved before the current one can be
+        // interned.  resolveBsmEntry() handles this recursively with cycle
+        // detection.
+        BootstrapMethodEntry[] bsms = new BootstrapMethodEntry[numBsms];
+        boolean[] inProgress = new boolean[numBsms];
+        for (int i = 0; i < numBsms; i++) {
+            resolveBsmEntry(i, rawBsmRefs, rawArgRefs, bsms, inProgress);
         }
         cls.setBootstrapMethods(Arrays.asList(bsms));
+    }
+
+    /**
+     * Recursively interns the {@code i}-th bootstrap method entry, resolving
+     * any {@link UnresolvedEntry} arguments that represent
+     * {@code CONSTANT_Dynamic} constants (JDK 11+) first.
+     *
+     * <p>A {@code CONSTANT_Dynamic} bootstrap method argument means "invoke
+     * the j-th bootstrap method to obtain this static argument value".  That
+     * j-th BSM must therefore be interned before entry {@code i} can be
+     * interned.  We use recursive descent with an {@code inProgress} guard to
+     * detect cycles (which would indicate a malformed class file).</p>
+     */
+    private void resolveBsmEntry(int i,
+                                 MethodHandleEntry[] rawBsmRefs,
+                                 Entry[][] rawArgRefs,
+                                 BootstrapMethodEntry[] resolved,
+                                 boolean[] inProgress) throws ClassFormatException {
+        if (resolved[i] != null) return;    // already resolved
+        if (inProgress[i]) {
+            throw new ClassFormatException(
+                    "Cycle in BootstrapMethods table at index " + i
+                    + " in File: " + cls.file.nameString);
+        }
+        inProgress[i] = true;
+        Entry[] argRefs = rawArgRefs[i].clone();
+        for (int j = 0; j < argRefs.length; j++) {
+            if (argRefs[j] instanceof UnresolvedEntry) {
+                UnresolvedEntry ue = (UnresolvedEntry) argRefs[j];
+                // Only CONSTANT_Dynamic may legally appear as a loadable BSM
+                // argument; CONSTANT_InvokeDynamic is not a loadable constant.
+                if (ue.tag != CONSTANT_Dynamic) {
+                    throw new ClassFormatException(
+                            "Unexpected unresolved CP entry (tag "
+                            + ConstantPool.tagName(ue.tag)
+                            + ") in BootstrapMethods args at BSM index " + i
+                            + " in File: " + cls.file.nameString);
+                }
+                int bsmIndex = (Integer) ue.refsOrIndexes[0];
+                if (bsmIndex < 0 || bsmIndex >= resolved.length) {
+                    throw new ClassFormatException(
+                            "CONSTANT_Dynamic BSM arg references out-of-range BSM index "
+                            + bsmIndex + " in File: " + cls.file.nameString);
+                }
+                DescriptorEntry desc = (DescriptorEntry) ue.refsOrIndexes[1];
+                resolveBsmEntry(bsmIndex, rawBsmRefs, rawArgRefs, resolved, inProgress);
+                argRefs[j] = ConstantPool.getDynamicEntry(resolved[bsmIndex], desc);
+            }
+        }
+        resolved[i] = ConstantPool.getBootstrapMethodEntry(rawBsmRefs[i], argRefs);
+        inProgress[i] = false;
     }
 
     void readInnerClasses(Class cls) throws IOException {
