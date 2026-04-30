@@ -981,6 +981,453 @@ public class SecurityHardeningTest {
                    outClassText.contains("TT;"));
     }
 
+    // -----------------------------------------------------------------------
+    // 16. Record component with RuntimeVisibleAnnotations (Java 16+)
+    // -----------------------------------------------------------------------
+
+    /**
+     * A Java 16 record with a single annotated component must survive a full
+     * pack → unpack round-trip, with the {@code RuntimeVisibleAnnotations}
+     * sub-attribute preserved on the component.
+     *
+     * <p>The generated class is equivalent to:</p>
+     * <pre>
+     *   public record TestAnnotatedRecord(@Deprecated int id) {}
+     * </pre>
+     */
+    @Test
+    public void testRecordWithRuntimeAnnotations() throws Exception {
+        byte[] classBytes = buildAnnotatedRecordClassFile();
+        byte[] outBytes = packUnpackClass("TestAnnotatedRecord", classBytes);
+
+        assertTrue("Output class must be a valid class file (CAFEBABE magic)",
+                   outBytes.length >= 4
+                   && (outBytes[0] & 0xFF) == 0xCA
+                   && (outBytes[1] & 0xFF) == 0xFE
+                   && (outBytes[2] & 0xFF) == 0xBA
+                   && (outBytes[3] & 0xFF) == 0xBE);
+
+        String outText = new String(outBytes, java.nio.charset.StandardCharsets.ISO_8859_1);
+        assertTrue("Output class must contain 'Record' attribute name",
+                   outText.contains("Record"));
+        assertTrue("Output class must preserve 'RuntimeVisibleAnnotations' sub-attribute name",
+                   outText.contains("RuntimeVisibleAnnotations"));
+        assertTrue("Output class must preserve the annotation type descriptor",
+                   outText.contains("Ljava/lang/Deprecated;"));
+    }
+
+    // -----------------------------------------------------------------------
+    // 17. Record component with both Signature and RuntimeVisibleAnnotations
+    // -----------------------------------------------------------------------
+
+    /**
+     * A Java 16 record with a component that carries <em>both</em> a
+     * {@code Signature} sub-attribute and a {@code RuntimeVisibleAnnotations}
+     * sub-attribute must have both preserved after pack → unpack.
+     *
+     * <p>The generated class is equivalent to:</p>
+     * <pre>
+     *   public record TestMultiAttrRecord&lt;T&gt;(@Deprecated T value) {}
+     * </pre>
+     */
+    @Test
+    public void testRecordWithMultipleSubAttributes() throws Exception {
+        byte[] classBytes = buildMultiAttrRecordClassFile();
+        byte[] outBytes = packUnpackClass("TestMultiAttrRecord", classBytes);
+
+        assertTrue("Output class must be a valid class file (CAFEBABE magic)",
+                   outBytes.length >= 4
+                   && (outBytes[0] & 0xFF) == 0xCA
+                   && (outBytes[1] & 0xFF) == 0xFE
+                   && (outBytes[2] & 0xFF) == 0xBA
+                   && (outBytes[3] & 0xFF) == 0xBE);
+
+        String outText = new String(outBytes, java.nio.charset.StandardCharsets.ISO_8859_1);
+        assertTrue("Output class must contain 'Record' attribute name",
+                   outText.contains("Record"));
+        assertTrue("Output class must preserve component Signature value 'TT;'",
+                   outText.contains("TT;"));
+        assertTrue("Output class must preserve the annotation type descriptor",
+                   outText.contains("Ljava/lang/Deprecated;"));
+    }
+
+    // -----------------------------------------------------------------------
+    // 18. Plain record round-trip fidelity (no sub-attributes)
+    // -----------------------------------------------------------------------
+
+    /**
+     * A plain Java 16 record whose components carry <em>no</em> sub-attributes
+     * must survive pack → unpack with the Record structure intact.  This
+     * exercises the backward-compatible path where {@code AO_HAVE_RC_ATTRS}
+     * is <em>not</em> set in the archive.
+     *
+     * <p>The generated class is equivalent to:</p>
+     * <pre>
+     *   public record TestPlainRecord(int x, String y) {}
+     * </pre>
+     */
+    @Test
+    public void testRecordRoundTripFidelity() throws Exception {
+        byte[] classBytes = buildPlainRecordClassFile();
+        byte[] outBytes = packUnpackClass("TestPlainRecord", classBytes);
+
+        assertTrue("Output class must be a valid class file (CAFEBABE magic)",
+                   outBytes.length >= 4
+                   && (outBytes[0] & 0xFF) == 0xCA
+                   && (outBytes[1] & 0xFF) == 0xFE
+                   && (outBytes[2] & 0xFF) == 0xBA
+                   && (outBytes[3] & 0xFF) == 0xBE);
+
+        String outText = new String(outBytes, java.nio.charset.StandardCharsets.ISO_8859_1);
+        assertTrue("Output class must contain 'Record' attribute name",
+                   outText.contains("Record"));
+        assertTrue("Output class must preserve component name 'x'",
+                   outText.contains("x"));
+        assertTrue("Output class must preserve component name 'y'",
+                   outText.contains("y"));
+    }
+
+    // -----------------------------------------------------------------------
+    // Shared helper: pack/unpack a single .class entry and return its bytes
+    // -----------------------------------------------------------------------
+
+    /**
+     * Packs the given class bytes into a JAR, runs pack200, unpacks, and
+     * returns the bytes of the named class entry in the unpacked JAR.
+     */
+    private static byte[] packUnpackClass(String className, byte[] classBytes)
+            throws Exception {
+        // Build an in-memory JAR.
+        ByteArrayOutputStream jarBuf = new ByteArrayOutputStream();
+        Manifest mf = new Manifest();
+        mf.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
+        JarOutputStream jos = new JarOutputStream(jarBuf, mf);
+        JarEntry entry = new JarEntry(className + ".class");
+        jos.putNextEntry(entry);
+        jos.write(classBytes);
+        jos.closeEntry();
+        jos.close();
+
+        // Pack.
+        ByteArrayOutputStream packBuf = new ByteArrayOutputStream();
+        Pack200.newPacker().pack(
+                new JarInputStream(new ByteArrayInputStream(jarBuf.toByteArray())),
+                packBuf);
+
+        // Unpack.
+        ByteArrayOutputStream unpackBuf = new ByteArrayOutputStream();
+        JarOutputStream unpackJos = new JarOutputStream(unpackBuf);
+        try {
+            Pack200.newUnpacker().unpack(
+                    new ByteArrayInputStream(packBuf.toByteArray()), unpackJos);
+        } finally {
+            unpackJos.close();
+        }
+
+        // Locate and return the class bytes.
+        JarInputStream jis = new JarInputStream(
+                new ByteArrayInputStream(unpackBuf.toByteArray()));
+        try {
+            JarEntry e;
+            while ((e = jis.getNextJarEntry()) != null) {
+                if (e.getName().equals(className + ".class")) {
+                    ByteArrayOutputStream tmp = new ByteArrayOutputStream();
+                    byte[] buf = new byte[4096];
+                    int n;
+                    while ((n = jis.read(buf)) != -1) tmp.write(buf, 0, n);
+                    return tmp.toByteArray();
+                }
+            }
+        } finally {
+            jis.close();
+        }
+        throw new AssertionError(className + ".class not found in unpacked JAR");
+    }
+
+    // -----------------------------------------------------------------------
+    // Class-file builders for the new record tests
+    // -----------------------------------------------------------------------
+
+    /**
+     * Builds a minimal Java 16 record class file whose single component
+     * carries a {@code RuntimeVisibleAnnotations} sub-attribute containing
+     * one {@code @Deprecated} annotation.
+     *
+     * <p>Equivalent to: {@code public record TestAnnotatedRecord(@Deprecated int id) {}}</p>
+     *
+     * <p>Constant-pool layout ({@code cp_count} = 12, indices 1–11):</p>
+     * <pre>
+     *  #1  Utf8  "TestAnnotatedRecord"
+     *  #2  Utf8  "java/lang/Object"
+     *  #3  Utf8  "java/lang/Record"
+     *  #4  Class #1
+     *  #5  Class #2
+     *  #6  Class #3
+     *  #7  Utf8  "id"                        (component name)
+     *  #8  Utf8  "I"                         (component descriptor: int)
+     *  #9  Utf8  "RuntimeVisibleAnnotations" (sub-attribute name)
+     *  #10 Utf8  "Record"                    (class attribute name)
+     *  #11 Utf8  "Ljava/lang/Deprecated;"    (annotation type descriptor)
+     * </pre>
+     */
+    private static byte[] buildAnnotatedRecordClassFile() throws IOException {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        DataOutputStream out = new DataOutputStream(bos);
+
+        // ---- class file header ----
+        out.writeInt(0xCAFEBABE);
+        out.writeShort(0);   // minor_version
+        out.writeShort(60);  // major_version = Java 16
+
+        // ---- constant pool ----
+        out.writeShort(12);  // cp_count: indices 1..11
+
+        out.writeByte(1); out.writeUTF("TestAnnotatedRecord");       // #1
+        out.writeByte(1); out.writeUTF("java/lang/Object");          // #2
+        out.writeByte(1); out.writeUTF("java/lang/Record");          // #3
+        out.writeByte(7); out.writeShort(1);                         // #4 Class #1
+        out.writeByte(7); out.writeShort(2);                         // #5 Class #2
+        out.writeByte(7); out.writeShort(3);                         // #6 Class #3
+        out.writeByte(1); out.writeUTF("id");                        // #7 component name
+        out.writeByte(1); out.writeUTF("I");                         // #8 component descriptor
+        out.writeByte(1); out.writeUTF("RuntimeVisibleAnnotations"); // #9 sub-attr name
+        out.writeByte(1); out.writeUTF("Record");                    // #10 class attr name
+        out.writeByte(1); out.writeUTF("Ljava/lang/Deprecated;");    // #11 annotation type
+
+        // ---- class header ----
+        out.writeShort(0x0010 | 0x0020); // ACC_FINAL | ACC_SUPER
+        out.writeShort(4);  // this_class  = #4
+        out.writeShort(6);  // super_class = #6 (java/lang/Record)
+        out.writeShort(0);  // interfaces_count
+
+        // ---- fields: none ----
+        out.writeShort(0);
+
+        // ---- methods: none ----
+        out.writeShort(0);
+
+        // ---- class attributes: 1 (Record) ----
+        out.writeShort(1);
+
+        // RuntimeVisibleAnnotations body: num_annotations(2) + type_index(2) + num_pairs(2) = 6
+        int rvaBodyLen = 2 + 2 + 2;
+
+        // Record body:
+        //   components_count(2)
+        //   + name_index(2) + descriptor_index(2) + attributes_count(2)
+        //   + RVA attr: name_index(2) + length(4) + body(rvaBodyLen)
+        int recordBodyLen = 2 + 2 + 2 + 2 + (2 + 4 + rvaBodyLen);
+
+        out.writeShort(10);             // attribute_name_index = #10 "Record"
+        out.writeInt(recordBodyLen);    // attribute_length
+        out.writeShort(1);             // components_count
+        // component[0]
+        out.writeShort(7);             //   name_index = #7 "id"
+        out.writeShort(8);             //   descriptor = #8 "I"
+        out.writeShort(1);             //   attributes_count = 1
+        // RuntimeVisibleAnnotations sub-attribute
+        out.writeShort(9);             //     attribute_name_index = #9
+        out.writeInt(rvaBodyLen);      //     attribute_length
+        out.writeShort(1);             //     num_annotations = 1
+        out.writeShort(11);            //     annotation[0].type_index = #11
+        out.writeShort(0);             //     annotation[0].num_element_value_pairs = 0
+
+        out.flush();
+        return bos.toByteArray();
+    }
+
+    /**
+     * Builds a minimal Java 16 record class file whose single component
+     * carries both a {@code Signature} and a {@code RuntimeVisibleAnnotations}
+     * sub-attribute.
+     *
+     * <p>Equivalent to:
+     * {@code public record TestMultiAttrRecord<T>(@Deprecated T value) {}}</p>
+     *
+     * <p>Constant-pool layout ({@code cp_count} = 15, indices 1–14):</p>
+     * <pre>
+     *  #1  Utf8  "TestMultiAttrRecord"
+     *  #2  Utf8  "java/lang/Object"
+     *  #3  Utf8  "java/lang/Record"
+     *  #4  Class #1
+     *  #5  Class #2
+     *  #6  Class #3
+     *  #7  Utf8  "value"                (component name)
+     *  #8  Utf8  "Ljava/lang/Object;"   (component descriptor)
+     *  #9  Utf8  "TT;"                  (component Signature value)
+     *  #10 Utf8  "Signature"            (attr name)
+     *  #11 Utf8  "Record"               (attr name)
+     *  #12 Utf8  "RuntimeVisibleAnnotations"
+     *  #13 Utf8  "Ljava/lang/Deprecated;"
+     *  #14 Utf8  "<T:Ljava/lang/Object;>Ljava/lang/Record;" (class Signature)
+     * </pre>
+     */
+    private static byte[] buildMultiAttrRecordClassFile() throws IOException {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        DataOutputStream out = new DataOutputStream(bos);
+
+        // ---- class file header ----
+        out.writeInt(0xCAFEBABE);
+        out.writeShort(0);   // minor_version
+        out.writeShort(60);  // major_version = Java 16
+
+        // ---- constant pool ----
+        out.writeShort(15);  // cp_count: indices 1..14
+
+        out.writeByte(1); out.writeUTF("TestMultiAttrRecord");                   // #1
+        out.writeByte(1); out.writeUTF("java/lang/Object");                      // #2
+        out.writeByte(1); out.writeUTF("java/lang/Record");                      // #3
+        out.writeByte(7); out.writeShort(1);                                     // #4 Class #1
+        out.writeByte(7); out.writeShort(2);                                     // #5 Class #2
+        out.writeByte(7); out.writeShort(3);                                     // #6 Class #3
+        out.writeByte(1); out.writeUTF("value");                                 // #7
+        out.writeByte(1); out.writeUTF("Ljava/lang/Object;");                    // #8
+        out.writeByte(1); out.writeUTF("TT;");                                   // #9
+        out.writeByte(1); out.writeUTF("Signature");                             // #10
+        out.writeByte(1); out.writeUTF("Record");                                // #11
+        out.writeByte(1); out.writeUTF("RuntimeVisibleAnnotations");             // #12
+        out.writeByte(1); out.writeUTF("Ljava/lang/Deprecated;");                // #13
+        out.writeByte(1); out.writeUTF("<T:Ljava/lang/Object;>Ljava/lang/Record;"); // #14
+
+        // ---- class header ----
+        out.writeShort(0x0010 | 0x0020); // ACC_FINAL | ACC_SUPER
+        out.writeShort(4);  // this_class  = #4
+        out.writeShort(6);  // super_class = #6 (java/lang/Record)
+        out.writeShort(0);  // interfaces_count
+
+        // ---- fields: none ----
+        out.writeShort(0);
+
+        // ---- methods: none ----
+        out.writeShort(0);
+
+        // ---- class attributes: 2 (Signature + Record) ----
+        out.writeShort(2);
+
+        // Class-level Signature attribute (#10/#14)
+        out.writeShort(10); // attribute_name_index = #10 "Signature"
+        out.writeInt(2);    // attribute_length = 2
+        out.writeShort(14); // signature_index = #14
+
+        // Signature sub-attr for component: name(2) + length(4) + index(2) = 8
+        int sigSubAttrLen = 2 + 4 + 2;
+        // RVA body: num_annotations(2) + type_index(2) + num_pairs(2) = 6
+        int rvaBodyLen = 2 + 2 + 2;
+        // RVA sub-attr: name(2) + length(4) + body(6) = 12
+        int rvaSubAttrLen = 2 + 4 + rvaBodyLen;
+
+        // Record body:
+        //   components_count(2)
+        //   + name_index(2) + descriptor_index(2) + attributes_count(2)
+        //   + Signature sub-attr (sigSubAttrLen)
+        //   + RVA sub-attr (rvaSubAttrLen)
+        int recordBodyLen = 2 + 2 + 2 + 2 + sigSubAttrLen + rvaSubAttrLen;
+
+        out.writeShort(11);             // attribute_name_index = #11 "Record"
+        out.writeInt(recordBodyLen);    // attribute_length
+        out.writeShort(1);             // components_count = 1
+        // component[0]
+        out.writeShort(7);             //   name_index = #7 "value"
+        out.writeShort(8);             //   descriptor = #8 "Ljava/lang/Object;"
+        out.writeShort(2);             //   attributes_count = 2
+        // Signature sub-attribute
+        out.writeShort(10);            //     attribute_name_index = #10 "Signature"
+        out.writeInt(2);               //     attribute_length = 2
+        out.writeShort(9);             //     signature_index = #9 "TT;"
+        // RuntimeVisibleAnnotations sub-attribute
+        out.writeShort(12);            //     attribute_name_index = #12
+        out.writeInt(rvaBodyLen);      //     attribute_length = 6
+        out.writeShort(1);             //     num_annotations = 1
+        out.writeShort(13);            //     annotation[0].type_index = #13
+        out.writeShort(0);             //     annotation[0].num_element_value_pairs = 0
+
+        out.flush();
+        return bos.toByteArray();
+    }
+
+    /**
+     * Builds a minimal Java 16 record class file with two plain components
+     * (no sub-attributes).  Used to verify the backward-compatible pack path
+     * where {@code AO_HAVE_RC_ATTRS} is <em>not</em> set.
+     *
+     * <p>Equivalent to: {@code public record TestPlainRecord(int x, String y) {}}</p>
+     *
+     * <p>Constant-pool layout ({@code cp_count} = 12, indices 1–11):</p>
+     * <pre>
+     *  #1  Utf8  "TestPlainRecord"
+     *  #2  Utf8  "java/lang/Object"
+     *  #3  Utf8  "java/lang/Record"
+     *  #4  Class #1
+     *  #5  Class #2
+     *  #6  Class #3
+     *  #7  Utf8  "x"                  (first component name)
+     *  #8  Utf8  "I"                  (first component descriptor: int)
+     *  #9  Utf8  "y"                  (second component name)
+     *  #10 Utf8  "Ljava/lang/String;" (second component descriptor)
+     *  #11 Utf8  "Record"             (class attribute name)
+     * </pre>
+     */
+    private static byte[] buildPlainRecordClassFile() throws IOException {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        DataOutputStream out = new DataOutputStream(bos);
+
+        // ---- class file header ----
+        out.writeInt(0xCAFEBABE);
+        out.writeShort(0);   // minor_version
+        out.writeShort(60);  // major_version = Java 16
+
+        // ---- constant pool ----
+        out.writeShort(12);  // cp_count: indices 1..11
+
+        out.writeByte(1); out.writeUTF("TestPlainRecord");       // #1
+        out.writeByte(1); out.writeUTF("java/lang/Object");      // #2
+        out.writeByte(1); out.writeUTF("java/lang/Record");      // #3
+        out.writeByte(7); out.writeShort(1);                     // #4 Class #1
+        out.writeByte(7); out.writeShort(2);                     // #5 Class #2
+        out.writeByte(7); out.writeShort(3);                     // #6 Class #3
+        out.writeByte(1); out.writeUTF("x");                     // #7 first component name
+        out.writeByte(1); out.writeUTF("I");                     // #8 first component descriptor
+        out.writeByte(1); out.writeUTF("y");                     // #9 second component name
+        out.writeByte(1); out.writeUTF("Ljava/lang/String;");    // #10 second component descriptor
+        out.writeByte(1); out.writeUTF("Record");                // #11 attr name
+
+        // ---- class header ----
+        out.writeShort(0x0010 | 0x0020); // ACC_FINAL | ACC_SUPER
+        out.writeShort(4);  // this_class  = #4
+        out.writeShort(6);  // super_class = #6 (java/lang/Record)
+        out.writeShort(0);  // interfaces_count
+
+        // ---- fields: none ----
+        out.writeShort(0);
+
+        // ---- methods: none ----
+        out.writeShort(0);
+
+        // ---- class attributes: 1 (Record) ----
+        out.writeShort(1);
+
+        // Record body:
+        //   components_count(2)
+        //   + component[0]: name_index(2) + descriptor_index(2) + attributes_count(2)
+        //   + component[1]: name_index(2) + descriptor_index(2) + attributes_count(2)
+        int recordBodyLen = 2 + 6 + 6;
+
+        out.writeShort(11);             // attribute_name_index = #11 "Record"
+        out.writeInt(recordBodyLen);    // attribute_length = 14
+        out.writeShort(2);             // components_count = 2
+        // component[0]
+        out.writeShort(7);             //   name_index = #7 "x"
+        out.writeShort(8);             //   descriptor = #8 "I"
+        out.writeShort(0);             //   attributes_count = 0
+        // component[1]
+        out.writeShort(9);             //   name_index = #9 "y"
+        out.writeShort(10);            //   descriptor = #10 "Ljava/lang/String;"
+        out.writeShort(0);             //   attributes_count = 0
+
+        out.flush();
+        return bos.toByteArray();
+    }
+
     /**
      * A plain Java 16 record with no component sub-attributes must survive a
      * full pack → unpack round-trip without errors.
