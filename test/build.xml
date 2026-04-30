@@ -85,6 +85,31 @@
         </java>
     </target>
 
+    <!--
+      benchmark target – runs only the population-coding benchmark tests via jtreg.
+      Usage: ant -f test/build.xml benchmark
+    -->
+    <target name="benchmark" description="Run population-coding benchmark tests">
+        <mkdir dir="${jtreg.report.dir}"/>
+        <mkdir dir="${jtreg.work.dir}"/>
+        <java classname="com.sun.javatest.regtest.Main"
+              fork="true"
+              failonerror="true">
+            <classpath>
+                <fileset dir="${jtreg.home}/lib" includes="*.jar" erroronmissingdir="false"/>
+            </classpath>
+            <arg value="-verbose:summary"/>
+            <arg value="-r:${jtreg.report.dir}"/>
+            <arg value="-workDir:${jtreg.work.dir}"/>
+            <arg value="-jdk:${jdk.home}"/>
+            <arg value="-cpa:${pack.jar}${path.separator}${test.lib.classes}"/>
+            <arg value="-vmoption:-Dpack.home=${pack.home}"/>
+            <arg value="-vmoption:-Dpack.version=${version}"/>
+            <arg value="${test.dir}/tools/pack200/PopulationCodingBenchmark.java"/>
+            <arg value="${test.dir}/tools/pack200/Java17ModernBenchmark.java"/>
+        </java>
+    </target>
+
     <target name="clean" description="Clean jtreg output directories">
         <delete dir="${jtreg.report.dir}"/>
         <delete dir="${jtreg.work.dir}"/>
