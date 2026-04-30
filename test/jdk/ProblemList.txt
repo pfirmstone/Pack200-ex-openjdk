@@ -115,7 +115,16 @@
 # core_tools
 
 tools/pack200/CommandLineTests.java                             8059906 generic-all
-tools/pack200/Java17Tests.java                                  generic-all
+tools/pack200/Java17Tests.java                                  jdk.version.major > 17
+tools/pack200/ModuleAttributes.java                             jdk.version.major < 9
+tools/pack200/Pack200Props.java                                 jdk.version.major < 9
+tools/pack200/compliance/AnnotationRoundTripTest.java           jdk.version.major < 11
+tools/pack200/compliance/LambdaBootstrapTest.java               jdk.version.major < 11
+tools/pack200/compliance/ModuleAttributeTest.java               jdk.version.major < 11
+tools/pack200/compliance/ModulePackagesMainClassTest.java       jdk.version.major < 9
+tools/pack200/compliance/NestHostMembersTest.java               jdk.version.major < 11
+## Windows path issue on Java 8:
+tools/pack200/typeannos/TestTypeAnnotations.java                  jdk.version.major == 8
 
 # The following compliance tests compile Java 17+ language features (records,
 # sealed classes) using --release 17.  They carry @requires jdk.version.major >= 17
