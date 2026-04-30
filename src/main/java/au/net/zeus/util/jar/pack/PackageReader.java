@@ -404,14 +404,14 @@ class PackageReader extends BandStructure {
                     + maxClassVer.toString()
                     + ". New structural features in this archive may not be"
                     + " decoded correctly.");
-        } else if (packageVersion.greaterThan(JAVA22_PACKAGE_VERSION)) {
+        } else if (packageVersion.greaterThan(JAVA25_PACKAGE_VERSION)) {
             // 220.0 (JAVA26): class 70.0–71.x (Java 26–27)
             maxClassVer = JAVA27_MAX_CLASS_VERSION;
-        } else if (packageVersion.greaterThan(JAVA18_PACKAGE_VERSION)) {
-            // 210.0 (JAVA22): class 66.0–69.x (Java 22–25)
+        } else if (packageVersion.greaterThan(JAVA21_PACKAGE_VERSION)) {
+            // 210.0 (JAVA25): class 66.0–69.x (Java 22–25)
             maxClassVer = JAVA25_MAX_CLASS_VERSION;
         } else if (packageVersion.greaterThan(JAVA17_PACKAGE_VERSION)) {
-            // 200.0 (JAVA18): class 62.0–65.x (Java 18–21)
+            // 200.0 (JAVA21): class 62.0–65.x (Java 18–21)
             maxClassVer = JAVA21_MAX_CLASS_VERSION;
         } else if (packageVersion.greaterThan(JAVA9_PACKAGE_VERSION)) {
             // 190.0 (JAVA11) and 190.1 (JAVA17): class 55.0–61.x
