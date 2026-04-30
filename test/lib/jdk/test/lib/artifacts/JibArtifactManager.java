@@ -77,7 +77,6 @@ public class JibArtifactManager implements ArtifactManager {
 
             Class<?> jibServiceFactory = classLoader.loadClass(JIB_SERVICE_FACTORY);
             try {
-                @SuppressWarnings("unchecked")
                 Object jibArtifactInstaller = jibServiceFactory.getMethod("createJibArtifactInstaller").invoke(null);
                 if (jibArtifactInstaller == null) {
                     throw new ClassNotFoundException("createJibArtifactInstaller returned null");

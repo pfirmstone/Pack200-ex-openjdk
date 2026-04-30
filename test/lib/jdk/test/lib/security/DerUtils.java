@@ -169,6 +169,7 @@ public class DerUtils {
      * @param der      the DER-encoded byte array
      * @param location navigation string (see {@link #innerDerValue})
      * @param expected the expected OID in dotted-decimal notation
+     *                 (e.g., {@code "1.2.840.113549.1.7.1"})
      */
     public static void checkAlg(byte[] der, String location,
             String expected) throws Exception {
@@ -227,7 +228,9 @@ public class DerUtils {
         } else {
             int numBytes = lengthByte & 0x7F;
             if (numBytes == 0 || numBytes > 4) {
-                throw new IOException("Unsupported DER length encoding");
+                throw new IOException(numBytes == 0
+                        ? "Indefinite-length encoding is not permitted in DER"
+                        : "Unsupported DER length encoding: " + numBytes + " bytes");
             }
             length = 0;
             for (int i = 0; i < numBytes; i++) {
