@@ -1385,7 +1385,7 @@ class PackageReader extends BandStructure {
         for (int i = 0; i < nc; i++) {
             Utf8Entry      name = (Utf8Entry)      class_Record_name_RU.getRef();
             SignatureEntry type = (SignatureEntry)  class_Record_type_RS.getRef();
-            comps.add(new Package.RecordComponent(name, type));
+            comps.add(new Package.RecordComponent(name, type, cls));
         }
         cls.recordComponents = new ArrayList<>(comps);
     }
@@ -1435,6 +1435,20 @@ class PackageReader extends BandStructure {
         class_interface.doneDisbursing();
         readMembers(classes);
         countAndReadAttrs(ATTR_CONTEXT_CLASS, Arrays.asList(classes));
+
+        // Read record component sub-attributes when the archive signals their
+        // presence via AO_HAVE_RC_ATTRS.  The bands are frozen in
+        // initAttrIndexLimit() when the bit is clear, so do NOT call
+        // countAndReadAttrs in that case (the bands are already in DONE_PHASE).
+        if (testBit(archiveOptions, AO_HAVE_RC_ATTRS)) {
+            List<Package.RecordComponent> allRCs = new ArrayList<>();
+            for (Class cls : classes) {
+                if (cls.recordComponents != null)
+                    allRCs.addAll(cls.recordComponents);
+            }
+            countAndReadAttrs(ATTR_CONTEXT_RECORD_COMPONENT, allRCs);
+        }
+
         pkg.trimToSize();
         readCodeHeaders();
         //code_bands.doneDisbursing(); // still need to read code attrs

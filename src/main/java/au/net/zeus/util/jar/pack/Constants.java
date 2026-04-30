@@ -277,10 +277,11 @@ class Constants {
     public static final int ATTR_CONTEXT_CLASS  = 0;
     public static final int ATTR_CONTEXT_FIELD  = 1;
     public static final int ATTR_CONTEXT_METHOD = 2;
-    public static final int ATTR_CONTEXT_CODE   = 3;
-    public static final int ATTR_CONTEXT_LIMIT  = 4;
+    public static final int ATTR_CONTEXT_CODE             = 3;
+    public static final int ATTR_CONTEXT_RECORD_COMPONENT = 4;
+    public static final int ATTR_CONTEXT_LIMIT            = 5;
     public static final String[] ATTR_CONTEXT_NAME
-        = { "class", "field", "method", "code" };
+        = { "class", "field", "method", "code", "record_component" };
 
     // predefined attr bits
     public static final int
@@ -336,14 +337,17 @@ class Constants {
     public static final int AO_HAVE_CODE_FLAGS_HI     = 1<<12;
     // Bit 13: set if the archive contains CONSTANT_Dynamic, CONSTANT_Module, or CONSTANT_Package entries
     public static final int AO_HAVE_CP_MODULE_DYNAMIC = 1<<13;
-    // Bits 14–31 are reserved for future use and MUST be zero in archives written
+    // Bit 14: set if the archive contains record component sub-attributes
+    // (annotations, Signature, etc. on individual record components; Java 16+)
+    public static final int AO_HAVE_RC_ATTRS          = 1<<14;
+    // Bits 15–31 are reserved for future use and MUST be zero in archives written
     // by this implementation.  When adding support for a new group of CP tags or
-    // other structural changes, allocate the next free bit here (14, 15, …) and
+    // other structural changes, allocate the next free bit here (15, 16, …) and
     // shift AO_UNUSED_MBZ left accordingly.  Example for a hypothetical Java-N
-    // feature using bit 14:
-    //   public static final int AO_HAVE_CP_JAVA_N = 1<<14;
-    //   public static final int AO_UNUSED_MBZ     = (-1)<<15;
-    public static final int AO_UNUSED_MBZ          = (-1)<<14;  // option bits reserved for future use
+    // feature using bit 15:
+    //   public static final int AO_HAVE_CP_JAVA_N = 1<<15;
+    //   public static final int AO_UNUSED_MBZ     = (-1)<<16;
+    public static final int AO_UNUSED_MBZ          = (-1)<<15;  // option bits reserved for future use
 
     public static final int LG_AO_HAVE_XXX_FLAGS_HI   = 9;
 

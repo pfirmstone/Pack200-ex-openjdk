@@ -192,6 +192,11 @@ class Attribute implements Comparable<Attribute> {
         define(sd, ATTR_CONTEXT_METHOD, "MethodParameters", "NB[RUNHFH]");
         //define(sd, ATTR_CONTEXT_METHOD, "Code", "HHNI[B]NH[PHPOHPOHRCNH]NH[RUHNI[B]]");
 
+        // Java 16+ record component attributes (JVMS 4.7.23)
+        define(sd, ATTR_CONTEXT_RECORD_COMPONENT, "Signature",  "RSH");
+        define(sd, ATTR_CONTEXT_RECORD_COMPONENT, "Synthetic",  "");
+        define(sd, ATTR_CONTEXT_RECORD_COMPONENT, "Deprecated", "");
+
         define(sd, ATTR_CONTEXT_CODE, "StackMapTable",
                ("[NH[(1)]]" +
                 "[TB" +
@@ -344,6 +349,7 @@ class Attribute implements Comparable<Attribute> {
         case ATTR_CONTEXT_FIELD: return "field";
         case ATTR_CONTEXT_METHOD: return "method";
         case ATTR_CONTEXT_CODE: return "code";
+        case ATTR_CONTEXT_RECORD_COMPONENT: return "record_component";
         }
         return null;
     }
