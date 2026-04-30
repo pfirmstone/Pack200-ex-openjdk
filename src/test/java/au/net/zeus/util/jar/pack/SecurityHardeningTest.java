@@ -1259,7 +1259,7 @@ public class SecurityHardeningTest {
      *  #11 Utf8  "Record"               (attr name)
      *  #12 Utf8  "RuntimeVisibleAnnotations"
      *  #13 Utf8  "Ljava/lang/Deprecated;"
-     *  #14 Utf8  "&lt;T:Ljava/lang/Object;&gt;Ljava/lang/Record;" (class Signature)
+     *  #14 Utf8  "<T:Ljava/lang/Object;>Ljava/lang/Record;" (class Signature)
      * </pre>
      */
     private static byte[] buildMultiAttrRecordClassFile() throws IOException {
