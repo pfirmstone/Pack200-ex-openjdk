@@ -166,9 +166,9 @@ public final class FileUtils {
     }
 
     public static List<IOException> deleteFileTreeUnchecked(Path dir) {
-        final List<IOException> excs = new ArrayList<>();
+        final List<IOException> excs = new ArrayList<IOException>();
         try {
-            java.nio.file.Files.walkFileTree(dir, new SimpleFileVisitor<>() {
+            java.nio.file.Files.walkFileTree(dir, new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
                     try {
