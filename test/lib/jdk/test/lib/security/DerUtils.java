@@ -25,7 +25,6 @@ package jdk.test.lib.security;
 import jdk.test.lib.Asserts;
 
 import java.io.IOException;
-import java.math.BigInteger;
 import java.util.Arrays;
 
 /**
@@ -76,14 +75,23 @@ public class DerUtils {
 
         /**
          * Interprets the content as an INTEGER and returns the value.
+         * Supports non-negative integers and negative integers using DER's
+         * two's complement encoding. Content must fit in a Java {@code int}.
          *
-         * @throws IOException if the tag is not INTEGER
+         * @throws IOException if the tag is not INTEGER, or the value overflows int
          */
         public int getInteger() throws IOException {
             checkTag(TAG_INTEGER);
-            int value = 0;
-            for (byte b : content) {
-                value = (value << 8) | (b & 0xFF);
+            if (content.length == 0 || content.length > 4) {
+                throw new IOException("DER INTEGER length out of range for int: " + content.length);
+            }
+            // DER integers are two's complement; sign-extend from the first byte
+            int value = (content[0] & 0xFF);
+            if ((value & 0x80) != 0) {
+                value |= ~0xFF; // sign extend to 32 bits
+            }
+            for (int i = 1; i < content.length; i++) {
+                value = (value << 8) | (content[i] & 0xFF);
             }
             return value;
         }
@@ -164,7 +172,9 @@ public class DerUtils {
      */
     public static void checkAlg(byte[] der, String location,
             String expected) throws Exception {
-        Asserts.assertEQ(innerDerValue(der, location).getOID(), expected);
+        DerNode node = innerDerValue(der, location);
+        Asserts.assertNotNull(node, "No DER value at location: " + location);
+        Asserts.assertEQ(node.getOID(), expected);
     }
 
     /**
@@ -176,7 +186,9 @@ public class DerUtils {
      */
     public static void checkInt(byte[] der, String location, int expected)
             throws Exception {
-        Asserts.assertEQ(innerDerValue(der, location).getInteger(), expected);
+        DerNode node = innerDerValue(der, location);
+        Asserts.assertNotNull(node, "No DER value at location: " + location);
+        Asserts.assertEQ(node.getInteger(), expected);
     }
 
     /**
@@ -195,6 +207,37 @@ public class DerUtils {
     // -------------------------------------------------------------------------
 
     /**
+     * Decodes a DER length field starting at {@code pos} in {@code data} and
+     * returns {@code int[]{length, updatedPos}}.
+     *
+     * <p>Supports short-form and long-form lengths up to 4 bytes (max ~2 GB),
+     * which is sufficient for any in-memory test data.
+     *
+     * @param data DER-encoded byte array
+     * @param pos  offset of the first length byte
+     * @return int[] where [0] is the decoded length and [1] is the position
+     *         immediately after the length field
+     * @throws IOException on unsupported or malformed length encoding
+     */
+    private static int[] decodeLength(byte[] data, int pos) throws IOException {
+        int lengthByte = data[pos++] & 0xFF;
+        int length;
+        if ((lengthByte & 0x80) == 0) {
+            length = lengthByte;
+        } else {
+            int numBytes = lengthByte & 0x7F;
+            if (numBytes == 0 || numBytes > 4) {
+                throw new IOException("Unsupported DER length encoding");
+            }
+            length = 0;
+            for (int i = 0; i < numBytes; i++) {
+                length = (length << 8) | (data[pos++] & 0xFF);
+            }
+        }
+        return new int[]{length, pos};
+    }
+
+    /**
      * Parses one DER TLV (tag-length-value) record starting at {@code offset}
      * within {@code data}.
      *
@@ -208,21 +251,9 @@ public class DerUtils {
         }
         int tag = data[offset++] & 0xFF;
 
-        // Decode length
-        int lengthByte = data[offset++] & 0xFF;
-        int length;
-        if ((lengthByte & 0x80) == 0) {
-            length = lengthByte;
-        } else {
-            int numBytes = lengthByte & 0x7F;
-            if (numBytes == 0 || numBytes > 4) {
-                throw new IOException("Unsupported DER length encoding");
-            }
-            length = 0;
-            for (int i = 0; i < numBytes; i++) {
-                length = (length << 8) | (data[offset++] & 0xFF);
-            }
-        }
+        int[] decoded = decodeLength(data, offset);
+        int length = decoded[0];
+        offset = decoded[1];
 
         if (offset + length > data.length) {
             throw new IOException("DER value extends beyond data buffer");
@@ -246,24 +277,11 @@ public class DerUtils {
         int pos = 0;
         int count = 0;
         while (pos < sequenceContent.length) {
-            int startPos = pos;
             int tag = sequenceContent[pos++] & 0xFF;
 
-            // Decode length
-            int lengthByte = sequenceContent[pos++] & 0xFF;
-            int length;
-            if ((lengthByte & 0x80) == 0) {
-                length = lengthByte;
-            } else {
-                int numBytes = lengthByte & 0x7F;
-                if (numBytes == 0 || numBytes > 4) {
-                    throw new IOException("Unsupported DER length encoding");
-                }
-                length = 0;
-                for (int i = 0; i < numBytes; i++) {
-                    length = (length << 8) | (sequenceContent[pos++] & 0xFF);
-                }
-            }
+            int[] decoded = decodeLength(sequenceContent, pos);
+            int length = decoded[0];
+            pos = decoded[1];
 
             if (count == index) {
                 byte[] content = Arrays.copyOfRange(sequenceContent, pos, pos + length);
