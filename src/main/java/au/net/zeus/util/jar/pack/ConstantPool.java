@@ -1279,7 +1279,10 @@ class ConstantPool {
             int index = findIndexOf(e);
             if (index < 0 && verbose() > 0) {
                 System.out.println("not found: "+e);
-                System.out.println("       in: "+this.dumpString());
+                System.out.println("       in: "+this.toString());
+                if (verbose() > 1) {
+                    System.out.println(this.dumpString());
+                }
                 Thread.dumpStack();
             }
             assert(index >= 0);
@@ -1355,13 +1358,13 @@ class ConstantPool {
             return "Index "+debugName+" ["+size()+"]";
         }
         public String dumpString() {
-            String s = toString();
-            s += " {\n";
+            StringBuilder sb = new StringBuilder(toString());
+            sb.append(" {\n");
             for (int i = 0; i < cpMap.length; i++) {
-                s += "    "+i+": "+cpMap[i]+"\n";
+                sb.append("    ").append(i).append(": ").append(cpMap[i]).append("\n");
             }
-            s += "}";
-            return s;
+            sb.append("}");
+            return sb.toString();
         }
     }
 
