@@ -26,6 +26,7 @@
  * @summary Compliance: BootstrapMethods table, invokedynamic bytecodes, and
  *          CONSTANT_MethodHandle / CONSTANT_MethodType CP entries survive
  *          pack/unpack (spec §6, package version 170.1+).
+ * @requires jdk.version.major >= 9
  * @compile -XDignore.symbol.file ../Utils.java LambdaBootstrapTest.java
  * @run main LambdaBootstrapTest
  */

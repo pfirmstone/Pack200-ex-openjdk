@@ -29,6 +29,7 @@ import java.util.List;
  * @test
  * @bug 8048100
  * @summary test the new Module attributes
+ * @requires jdk.version.major >= 9
  * @modules jdk.compiler
  *          jdk.zipfs
  * @compile -XDignore.symbol.file Utils.java ModuleAttributes.java

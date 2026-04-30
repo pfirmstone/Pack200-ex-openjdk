@@ -25,6 +25,7 @@
  * @test
  * @bug 8001163
  * @summary tests simple TypeAnnotations in classfiles
+ * @requires jdk.version.major > 8
  * @compile -XDignore.symbol.file ../Utils.java
  *          TestTypeAnnotations.java TargetTypes.java
  *          TypeUseTarget.java Lambda.java

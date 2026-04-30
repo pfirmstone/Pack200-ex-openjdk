@@ -33,6 +33,7 @@ import java.util.List;
  *          (PermittedSubclasses attribute), and lambdas (BootstrapMethods /
  *          invokedynamic).  These attributes are now compressed natively by the
  *          pack200 implementation (no --unknown-attribute=pass required).
+ * @requires jdk.version.major >= 17
  * @compile -XDignore.symbol.file Utils.java Java17Tests.java
  * @run main Java17Tests
  */

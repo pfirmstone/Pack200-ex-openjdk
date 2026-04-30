@@ -25,6 +25,7 @@
  * @test C-06
  * @summary Compliance: Module attribute with all sub-elements (requires, exports,
  *          opens, uses, provides) survives pack/unpack (spec §7.2, index 29).
+ * @requires jdk.version.major >= 9
  * @compile -XDignore.symbol.file ../Utils.java ModuleAttributeTest.java
  * @run main ModuleAttributeTest
  */

@@ -25,6 +25,7 @@
  * @test
  * @bug 6575373 6969063
  * @summary verify default properties of the packer/unpacker and segment limit
+ * @requires jdk.version.major == 8
  * @modules java.logging
  *          jdk.compiler
  *          jdk.zipfs

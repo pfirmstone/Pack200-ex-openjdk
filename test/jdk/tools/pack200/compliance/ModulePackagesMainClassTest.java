@@ -25,6 +25,7 @@
  * @test C-07
  * @summary Compliance: ModulePackages (index 30) and ModuleMainClass (index 31)
  *          attributes survive pack/unpack (spec §7.1).
+ * @requires jdk.version.major >= 9
  * @compile -XDignore.symbol.file ../Utils.java ModulePackagesMainClassTest.java
  * @run main ModulePackagesMainClassTest
  */

@@ -27,6 +27,7 @@
  *          without triggering --unknown-attribute=pass (spec §7.1, indices 25-26).
  *          Verifies that the attributes are natively encoded and are therefore
  *          preserved without raw-byte pass-through warnings.
+ * @requires jdk.version.major >= 11
  * @compile -XDignore.symbol.file ../Utils.java NestHostMembersTest.java
  * @run main NestHostMembersTest
  */
