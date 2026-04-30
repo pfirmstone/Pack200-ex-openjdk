@@ -21,28 +21,11 @@ groups=TEST.groups
 
 # Allow querying of various System properties in @requires clauses
 #
-# Source files for classes that will be used at the beginning of each test suite run,
-# to determine additional characteristics of the system for use with the @requires tag.
-# Note: compiled bootlibs code will be located in the folder 'bootClasses'
-requires.extraPropDefns.bootlibs = ../lib/sun \
-    ../lib/jdk/test/lib/Platform.java \
-    ../lib/jdk/test/lib/Container.java
-requires.extraPropDefns.vmOpts = -XX:+UnlockDiagnosticVMOptions -XX:+WhiteBoxAPI -Xbootclasspath/a:bootClasses
+# Pack200 tests only use built-in jtreg properties (jdk.version.major,
+# sun.arch.data.model, os.maxMemory) which require no extra boot classes.
 requires.properties= \
     sun.arch.data.model \
-    java.runtime.name \
-    vm.gc.Z \
-    vm.gc.Shenandoah \
-    vm.graal.enabled \
-    vm.compiler1.enabled \
-    vm.compiler2.enabled \
-    vm.cds \
-    vm.debug \
-    vm.hasSA \
-    vm.hasSAandCanAttach \
-    vm.hasJFR \
-    docker.support \
-    release.implementor
+    java.runtime.name
 
 # Minimum jtreg version
 requiredVersion=4.2 b14
