@@ -18,3 +18,4 @@ NashornProfile.txt
 /LICENSE NOTES FOR DEVELOPERS - PLEASE READ BEFORE CONTRIBUTING
 test/jdk/tools/pack200/pack200-verifier/build/
 test/jdk/tools/pack200/pack200-verifier/dist/
+**/*.class
