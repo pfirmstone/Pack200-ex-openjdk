@@ -1192,7 +1192,7 @@ class BandStructure {
                                      int[] values, int start, int end) {
         if (end <= start) return;
         try {
-            java.io.ByteArrayOutputStream ctx = cc.getContext();
+            ByteArrayOutputStream ctx = cc.getContext();
             ctx.reset();
             int len = Math.min(end - start, CODING_CONTEXT_LIMIT);
             coding.writeArrayTo(ctx, values, start, start + len);
@@ -1378,8 +1378,11 @@ class BandStructure {
             // the shared instance.  ByteBands and nested MultiBands are handled
             // sequentially in phase 2 (ByteBand is a no-op; MultiBand recurses
             // and applies the same two-phase strategy to its own children).
+            //
+            // Note: basicCodings is a shared, immutable array; each CodingChooser
+            // stores a reference to it without copying, so passing it here is safe.
             if (effort > MIN_EFFORT && bandCount > 1) {
-                List<Callable<Void>> tasks = new ArrayList<>(bandCount);
+                List<Callable<Void>> tasks = new ArrayList<>();
                 for (int i = 0; i < bandCount; i++) {
                     Band b = bands[i];
                     if (b instanceof ValueBand) {
