@@ -73,6 +73,9 @@ class Utils {
             System.getProperty("os.name").startsWith("Windows");
     static final boolean Is64Bit =
             System.getProperty("sun.arch.data.model", "32").equals("64");
+    // Use compile.jdk (set by jtreg) for compiler tools; on JDK 8 java.home
+    // points to the JRE subdirectory which does not contain javac/jar.
+    static final String CompileJDKHome = resolveCompileJDKHome();
     static final File   JavaSDK =  new File(JavaHome);
     
     static final String PackHome = System.getProperty("pack.home");
@@ -600,26 +603,52 @@ class Utils {
     }
 
     static String getJavaCmd() {
-        return getAjavaCmd("java");
+        return getAjavaCmd("java", JavaHome);
     }
 
     static String getJavacCmd() {
-        return getAjavaCmd("javac");
+        return getAjavaCmd("javac", CompileJDKHome);
     }
 
     static String getJarCmd() {
-        return getAjavaCmd("jar");
+        return getAjavaCmd("jar", CompileJDKHome);
     }
 
     static String getAjavaCmd(String cmdStr) {
-        File binDir = new File(JavaHome, "bin");
-        File unpack200File = IsWindows
+        return getAjavaCmd(cmdStr, JavaHome);
+    }
+
+    private static String resolveCompileJDKHome() {
+        // jtreg sets compile.jdk to the JDK used for compilation
+        String compileJdk = System.getProperty("compile.jdk");
+        if (compileJdk != null && !compileJdk.isEmpty()) {
+            return compileJdk;
+        }
+        // Fallback: on JDK 8 java.home points to the JRE subdirectory;
+        // if so, use the parent (the actual JDK root) as the compile home.
+        File homeFile = new File(JavaHome);
+        if (homeFile.getName().equals("jre")) {
+            File parent = homeFile.getParentFile();
+            if (parent != null) {
+                File javac = new File(new File(parent, "bin"),
+                        IsWindows ? "javac.exe" : "javac");
+                if (javac.canExecute()) {
+                    return parent.getAbsolutePath();
+                }
+            }
+        }
+        return JavaHome;
+    }
+
+    private static String getAjavaCmd(String cmdStr, String home) {
+        File binDir = new File(home, "bin");
+        File cmdFile = IsWindows
                     ? new File(binDir, cmdStr + ".exe")
                     : new File(binDir, cmdStr);
 
-        String cmd = unpack200File.getAbsolutePath();
-            if (!unpack200File.canExecute()) {
-                throw new RuntimeException("please check" +
+        String cmd = cmdFile.getAbsolutePath();
+            if (!cmdFile.canExecute()) {
+                throw new RuntimeException("Please check " +
                         cmd + " exists and is executable");
             }
         return cmd;
