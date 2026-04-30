@@ -184,20 +184,24 @@
                             <target>
                                 <mkdir dir="${project.build.directory}/test-lib-classes"/>
                                 <!--
-                                  Compile test/lib sources. failonerror="false" is intentional:
-                                  some files (e.g. sun/hotspot/** and container-specific classes)
-                                  may not compile on all platforms/JDKs; ignoring those failures
-                                  allows the essential test utilities (e.g. OutputAnalyzer) to
-                                  still be compiled and placed on the jtreg classpath.
+                                  Compile test/lib sources. Problematic files that cannot be
+                                  compiled on the current JDK are explicitly excluded below.
                                 -->
                                 <javac srcdir="${basedir}/test/lib"
                                        destdir="${project.build.directory}/test-lib-classes"
-                                       includeantruntime="false"
-                                       failonerror="false">
+                                       includeantruntime="false">
                                     <compilerarg value="-source"/>
                                     <compilerarg value="8"/>
                                     <compilerarg value="-target"/>
                                     <compilerarg value="8"/>
+                                    <!--
+                                      Exclude test utility classes that do not compile on
+                                      the current JDK: MetricsTester uses Metrics API methods
+                                      removed after JDK 14, and FileUtils uses the diamond
+                                      operator with anonymous inner classes (Java 9+ only).
+                                    -->
+                                    <exclude name="jdk/test/lib/containers/cgroup/MetricsTester.java"/>
+                                    <exclude name="jdk/test/lib/util/FileUtils.java"/>
                                 </javac>
                             </target>
                         </configuration>
