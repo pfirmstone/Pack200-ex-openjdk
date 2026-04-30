@@ -102,8 +102,8 @@ public class PackageVersionTest {
         int javaVersion = getJavaFeatureVersion();
         int major, minor;
         if      (javaVersion >= 26) { major = 220; minor = 0; } // JAVA26_PACKAGE_VERSION
-        else if (javaVersion >= 22) { major = 210; minor = 0; } // JAVA22_PACKAGE_VERSION
-        else if (javaVersion >= 18) { major = 200; minor = 0; } // JAVA18_PACKAGE_VERSION
+        else if (javaVersion >= 22) { major = 210; minor = 0; } // JAVA25_PACKAGE_VERSION
+        else if (javaVersion >= 18) { major = 200; minor = 0; } // JAVA21_PACKAGE_VERSION
         else if (javaVersion >= 17) { major = 190; minor = 1; } // JAVA17_PACKAGE_VERSION
         else if (javaVersion >= 11) { major = 190; minor = 0; } // JAVA11_PACKAGE_VERSION
         else if (javaVersion >= 9)  { major = 180; minor = 0; } // JAVA9_PACKAGE_VERSION

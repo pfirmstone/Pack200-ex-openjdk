@@ -169,19 +169,24 @@ class Constants {
             Package.Version.of(190, 1);
 
     // Archive version 200.0 covers Java 18–21 class files (62.0–65.0).
+    // Named after Java 21 (LTS), the highest LTS release in this bracket.
     // A new major is required if any future Java 18–21 feature introduces CP tags
     // or structural header changes that older readers cannot skip.  For now the
     // version is defined here so that the writer and reader stay in sync as soon
     // as such a feature is implemented; the range-based version check in
     // checkArchiveVersion() already accepts it.
-    public static final Package.Version JAVA18_PACKAGE_VERSION =
+    public static final Package.Version JAVA21_PACKAGE_VERSION =
             Package.Version.of(200, 0);
 
     // Archive version 210.0 covers Java 22–25 class files (66.0–69.0).
-    public static final Package.Version JAVA22_PACKAGE_VERSION =
+    // Named after Java 25 (LTS), the highest LTS release in this bracket.
+    public static final Package.Version JAVA25_PACKAGE_VERSION =
             Package.Version.of(210, 0);
 
     // Archive version 220.0 covers Java 26–27 class files (70.0–71.0).
+    // Named after Java 26, the first release in this bracket.  The LTS ceiling
+    // (Java 29) is not yet released; the name will be revisited when that
+    // release is incorporated.
     public static final Package.Version JAVA26_PACKAGE_VERSION =
             Package.Version.of(220, 0);
 
@@ -205,9 +210,9 @@ class Constants {
     //   180.0  (JAVA9)   : class 53.0–54.x (Module/Package CP entries allowed)
     //   190.0  (JAVA11)  : class 55.0–61.x
     //   190.1  (JAVA17)  : class 55.0–61.x + Record/PermittedSubclasses attrs
-    //   200.0  (JAVA18)  : class 62.0–65.x (Java 18–21)
-    //   210.0  (JAVA22)  : class 66.0–69.x (Java 22–25)
-    //   220.0  (JAVA26)  : class 70.0–71.x (Java 26–27)
+    //   200.0  (JAVA21)  : class 62.0–65.x (Java 18–21; LTS ceiling: Java 21)
+    //   210.0  (JAVA25)  : class 66.0–69.x (Java 22–25; LTS ceiling: Java 25)
+    //   220.0  (JAVA26)  : class 70.0–71.x (Java 26–27; LTS ceiling: Java 29, pending)
     public static final Package.Version MAX_PACKAGE_VERSION =
             JAVA26_PACKAGE_VERSION;
 

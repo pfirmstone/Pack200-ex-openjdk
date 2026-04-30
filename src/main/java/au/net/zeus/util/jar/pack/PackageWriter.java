@@ -163,10 +163,10 @@ class PackageWriter extends BandStructure {
             packageVersion = JAVA11_PACKAGE_VERSION;
         } else if (highV.lessThan(JAVA22_MAX_CLASS_VERSION)) {
             // Java 18–21: class version 62–65
-            packageVersion = JAVA18_PACKAGE_VERSION;
+            packageVersion = JAVA21_PACKAGE_VERSION;
         } else if (highV.lessThan(JAVA26_MAX_CLASS_VERSION)) {
             // Java 22–25: class version 66–69
-            packageVersion = JAVA22_PACKAGE_VERSION;
+            packageVersion = JAVA25_PACKAGE_VERSION;
         } else {
             // Java 26–27: class version 70–71
             packageVersion = JAVA26_PACKAGE_VERSION;

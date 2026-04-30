@@ -220,8 +220,8 @@ class Utils {
     static Package.Version getVersionForCurrentJVM() {
         int javaVersion = parseJavaSpecVersion();
         if (javaVersion >= 26) return Constants.JAVA26_PACKAGE_VERSION;
-        if (javaVersion >= 22) return Constants.JAVA22_PACKAGE_VERSION;
-        if (javaVersion >= 18) return Constants.JAVA18_PACKAGE_VERSION;
+        if (javaVersion >= 22) return Constants.JAVA25_PACKAGE_VERSION;
+        if (javaVersion >= 18) return Constants.JAVA21_PACKAGE_VERSION;
         if (javaVersion >= 17) return Constants.JAVA17_PACKAGE_VERSION;
         if (javaVersion >= 11) return Constants.JAVA11_PACKAGE_VERSION;
         if (javaVersion >= 9)  return Constants.JAVA9_PACKAGE_VERSION;
