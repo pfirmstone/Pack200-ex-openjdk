@@ -134,6 +134,43 @@
                         <maxmem>1024m</maxmem>
                     <showDeprecation>true</showDeprecation>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>compile-test-lib</id>
+                        <phase>test-compile</phase>
+                        <goals><goal>testCompile</goal></goals>
+                        <!--
+                          combine.self="override" prevents inheriting the global
+                          release=8 setting so we can use -source/-target instead.
+                          Using "release 8" would restrict API to Java 8 only and cause
+                          cascade failures for test/lib files that reference JDK 9+ APIs
+                          (e.g. JFR, JMX containers).  With -source 8 -target 8 the compiler
+                          allows any JDK API available at build time while still producing
+                          Java 8 class files, matching the original Ant task behaviour.
+                        -->
+                        <configuration combine.self="override">
+                            <compileSourceRoots>
+                                <compileSourceRoot>${basedir}/test/lib</compileSourceRoot>
+                            </compileSourceRoots>
+                            <outputDirectory>${project.build.directory}/test-lib-classes</outputDirectory>
+                            <source>8</source>
+                            <target>8</target>
+                            <failOnError>false</failOnError>
+                            <useIncrementalCompilation>false</useIncrementalCompilation>
+                            <!--
+                              Exclude files that cannot compile with -source 8 or reference
+                              APIs removed in newer JDKs.  Excluded files are not needed for
+                              the Pack200 jtreg tests.
+                            -->
+                            <testExcludes>
+                                <!-- diamond operator with anonymous inner class: Java 9+ only -->
+                                <testExclude>**/util/FileUtils.java</testExclude>
+                                <!-- uses jdk.internal.platform.Metrics API removed post-JDK 14 -->
+                                <testExclude>**/cgroup/MetricsTester.java</testExclude>
+                            </testExcludes>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -145,104 +182,6 @@
                 <artifactId>maven-antrun-plugin</artifactId>
                 <version>1.8</version>
                 <executions>
-                    <!--
-                      Compile multi-release sources into staging directories so that
-                      bnd-process (process-classes phase) only sees the base Java 8
-                      classes.  The copy-resources executions in prepare-package then
-                      move the versioned class files into the canonical
-                      META-INF/versions/N/ locations inside target/classes/.
-                    -->
-                    <execution>
-                        <id>compile-mrjar</id>
-                        <phase>compile</phase>
-                        <goals><goal>run</goal></goals>
-                        <configuration>
-                            <target>
-                                <!--
-                                  Locate the javac executable from the JDK that Maven is running
-                                  under, so the build works whether Maven is invoked with a JDK 8
-                                  JRE or a JDK 11+ JDK.
-
-                                  On JDK 8, java.home points at the JRE directory
-                                  (e.g. .../zulu-8/jre) and tools.jar lives one level up in
-                                  .../zulu-8/lib/tools.jar.  javac is therefore at
-                                  ${java.home}/../bin/javac.
-
-                                  On JDK 9+, java.home points directly at the JDK directory and
-                                  there is no tools.jar; javac is at ${java.home}/bin/javac.
-                                -->
-                                <condition property="javac.exe"
-                                           value="${java.home}/../bin/javac">
-                                    <available file="${java.home}/../lib/tools.jar"/>
-                                </condition>
-                                <property name="javac.exe" value="${java.home}/bin/javac"/>
-
-                                <!-- Java 9: compile module-info.java.
-                                     Uses fork=true so the compiler is resolved from the explicit
-                                     executable path above rather than from the Ant classpath.
-                                     failonerror=false: on JDK 8 the javac "release 9" flag is
-                                     unavailable, so the compilation is skipped silently and the
-                                     resulting JAR simply has no module descriptor (which is fine
-                                     for JDK 8 runtimes). -->
-                                <mkdir dir="${project.build.directory}/java9"/>
-                                <javac srcdir="${basedir}/src/main/java9"
-                                       destdir="${project.build.directory}/java9"
-                                       classpath="${project.build.outputDirectory}"
-                                       includeantruntime="false"
-                                       fork="true"
-                                       executable="${javac.exe}"
-                                       failonerror="false">
-                                    <compilerarg value="--release"/>
-                                    <compilerarg value="9"/>
-                                    <compilerarg value="--patch-module"/>
-                                    <compilerarg value="au.net.zeus.util.jar.pack=${project.build.outputDirectory}"/>
-                                </javac>
-                                <!-- Java 17: slot reserved for future Java-17+-specific overrides.
-                                     The AccessController shim now lives in the base (Java 8) classes,
-                                     so no java17-specific sources are currently needed. -->
-                                <mkdir dir="${project.build.directory}/java17"/>
-                            </target>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>compile-test-lib</id>
-                        <phase>generate-test-sources</phase>
-                        <goals><goal>run</goal></goals>
-                        <configuration>
-                            <target>
-                                <!--
-                                  Locate javac executable (same logic as compile-mrjar).
-                                  On JDK 8 JRE java.home points at the JRE directory;
-                                  javac lives one level up.  On JDK 9+ java.home is the JDK.
-                                -->
-                                <condition property="javac.exe"
-                                           value="${java.home}/../bin/javac">
-                                    <available file="${java.home}/../lib/tools.jar"/>
-                                </condition>
-                                <property name="javac.exe" value="${java.home}/bin/javac"/>
-
-                                <mkdir dir="${project.build.directory}/test-lib-classes"/>
-                                <!--
-                                  Compile test/lib sources. failonerror="false" is intentional:
-                                  some files (e.g. sun/hotspot/** and container-specific classes)
-                                  may not compile on all platforms/JDKs; ignoring those failures
-                                  allows the essential test utilities (e.g. OutputAnalyzer) to
-                                  still be compiled and placed on the jtreg classpath.
-                                -->
-                                <javac srcdir="${basedir}/test/lib"
-                                       destdir="${project.build.directory}/test-lib-classes"
-                                       includeantruntime="false"
-                                       fork="true"
-                                       executable="${javac.exe}"
-                                       failonerror="false">
-                                    <compilerarg value="-source"/>
-                                    <compilerarg value="8"/>
-                                    <compilerarg value="-target"/>
-                                    <compilerarg value="8"/>
-                                </javac>
-                            </target>
-                        </configuration>
-                    </execution>
                     <execution>
                         <id>test</id>
                         <phase>verify</phase>
@@ -337,6 +276,47 @@
         </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+          Compile the Java 9 multi-release sources (module-info.java) only when
+          building with JDK 9 or later.  On JDK 8 this profile is inactive so the
+          compilation is simply skipped, matching the original failonerror="false"
+          behaviour of the Ant task.  Using maven-compiler-plugin instead of Ant
+          ensures Maven always uses the correct javac regardless of JAVA_HOME or PATH.
+        -->
+        <profile>
+            <id>java9-mrjar</id>
+            <activation>
+                <jdk>[9,)</jdk>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>compile-mrjar</id>
+                                <phase>compile</phase>
+                                <goals><goal>compile</goal></goals>
+                                <configuration>
+                                    <compileSourceRoots>
+                                        <compileSourceRoot>${basedir}/src/main/java9</compileSourceRoot>
+                                    </compileSourceRoots>
+                                    <outputDirectory>${project.build.directory}/java9</outputDirectory>
+                                    <release>9</release>
+                                    <compilerArgs>
+                                        <arg>--patch-module</arg>
+                                        <arg>au.net.zeus.util.jar.pack=${project.build.outputDirectory}</arg>
+                                    </compilerArgs>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
     <reporting>
         <plugins>
