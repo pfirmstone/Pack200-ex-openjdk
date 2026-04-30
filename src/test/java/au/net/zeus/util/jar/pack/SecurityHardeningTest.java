@@ -1012,9 +1012,11 @@ public class SecurityHardeningTest {
         out.writeByte(7); out.writeShort(3);                      // #6  Class #3
         out.writeByte(1); out.writeUTF("value");                  // #7  component name
         out.writeByte(1); out.writeUTF("Ljava/lang/Object;");     // #8  component descriptor
-        out.writeByte(1); out.writeUTF("TT;");                    // #9  component Signature value
+        out.writeByte(1); out.writeUTF("TT;");                    // #9  component Signature: type param T
         out.writeByte(1); out.writeUTF("Signature");              // #10 attr name
         out.writeByte(1); out.writeUTF("Record");                 // #11 attr name
+        // #12: generic class signature — one type param T bounded by Object,
+        //      extending Record  (JVMS §4.7.9 ClassSignature syntax)
         out.writeByte(1); out.writeUTF("<T:Ljava/lang/Object;>Ljava/lang/Record;"); // #12 class sig
         out.writeByte(1); out.writeUTF("SourceFile");             // #13 (unused, stabilises CP order)
 

@@ -307,15 +307,8 @@ class PackageWriter extends BandStructure {
 
         // Decide if any record component has sub-attributes (Signature,
         // annotations, etc.) — these require the rc_attr_bands (AO_HAVE_RC_ATTRS).
-        outer:
-        for (Class cls : pkg.classes) {
-            if (cls.recordComponents == null) continue;
-            for (Package.RecordComponent rc : cls.recordComponents) {
-                if (rc.attributeSize() > 0) {
-                    archiveOptions |= AO_HAVE_RC_ATTRS;
-                    break outer;
-                }
-            }
+        if (anyRecordComponentHasSubAttrs()) {
+            archiveOptions |= AO_HAVE_RC_ATTRS;
         }
 
         // Decide if code attributes typically have sub-attributes.
@@ -348,6 +341,18 @@ class PackageWriter extends BandStructure {
         chooseDefaultPackageVersion();
         writeArchiveMagic();
         writeArchiveHeader();
+    }
+
+    /** Returns true iff at least one record component in the package has one
+     *  or more sub-attributes (Signature, annotations, etc.). */
+    private boolean anyRecordComponentHasSubAttrs() {
+        for (Class cls : pkg.classes) {
+            if (cls.recordComponents == null) continue;
+            for (Package.RecordComponent rc : cls.recordComponents) {
+                if (rc.attributeSize() > 0) return true;
+            }
+        }
+        return false;
     }
 
     // Local routine used to format fixed-format scalars

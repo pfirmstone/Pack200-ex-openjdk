@@ -2176,7 +2176,9 @@ class BandStructure {
         case ATTR_CONTEXT_CODE:
             assert(mask == AO_HAVE_CODE_FLAGS_HI); break;
         case ATTR_CONTEXT_RECORD_COMPONENT:
-            // Record components have no flags_hi; rc_flags_hi is always empty.
+            // Record components never use 63-bit flags: bit 13 (which would be
+            // 1<<(LG_AO_HAVE_XXX_FLAGS_HI+4)) is already allocated to
+            // AO_HAVE_CP_MODULE_DYNAMIC and cannot be repurposed here.
             return false;
         default:
             assert(false);
