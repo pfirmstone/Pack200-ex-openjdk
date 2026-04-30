@@ -21,8 +21,14 @@
  * questions.
  */
 
-import java.io.PrintWriter;
+import java.io.FileOutputStream;
 import java.lang.instrument.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.jar.Attributes;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
 import jdk.test.lib.compiler.InMemoryJavaCompiler;
 
 /*
@@ -66,14 +72,18 @@ public class RedefineClassHelper {
     public static void main(String[] args) throws Exception {
         ClassFileInstaller.main("RedefineClassHelper");
 
-        PrintWriter pw = new PrintWriter("MANIFEST.MF");
-        pw.println("Premain-Class: RedefineClassHelper");
-        pw.println("Can-Redefine-Classes: true");
-        pw.close();
+        Manifest manifest = new Manifest();
+        Attributes attrs = manifest.getMainAttributes();
+        attrs.put(Attributes.Name.MANIFEST_VERSION, "1.0");
+        attrs.putValue("Premain-Class", "RedefineClassHelper");
+        attrs.putValue("Can-Redefine-Classes", "true");
 
-        sun.tools.jar.Main jarTool = new sun.tools.jar.Main(System.out, System.err, "jar");
-        if (!jarTool.run(new String[] { "-cmf", "MANIFEST.MF", "redefineagent.jar", "RedefineClassHelper.class" })) {
-            throw new Exception("jar operation failed");
+        try (JarOutputStream jos = new JarOutputStream(
+                new FileOutputStream("redefineagent.jar"), manifest)) {
+            JarEntry entry = new JarEntry("RedefineClassHelper.class");
+            jos.putNextEntry(entry);
+            jos.write(Files.readAllBytes(Paths.get("RedefineClassHelper.class")));
+            jos.closeEntry();
         }
     }
 }
