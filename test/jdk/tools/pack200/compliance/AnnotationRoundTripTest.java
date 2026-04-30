@@ -27,6 +27,7 @@
  *          (RuntimeVisibleAnnotations, RuntimeInvisibleAnnotations,
  *          RuntimeVisibleTypeAnnotations, RuntimeInvisibleTypeAnnotations)
  *          on classes, fields, and methods (spec §7.1–§7.5).
+ * @requires jdk.version.major >= 11
  * @compile -XDignore.symbol.file ../Utils.java AnnotationRoundTripTest.java
  * @run main AnnotationRoundTripTest
  */
