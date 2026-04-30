@@ -640,6 +640,16 @@ class PackageReader extends BandStructure {
 
         if (verbose > 0)  Utils.log.info("Reading CP");
 
+        // Deferred state for BSM arg resolution (see post-loop fixup below).
+        // CONSTANT_Dynamic entries appear *after* CONSTANT_BootstrapMethod in
+        // TAGS_IN_ORDER, so BSM static arguments that are CONSTANT_Dynamic
+        // cannot be resolved during the BootstrapMethod pass.  Raw codes are
+        // stored and resolved once CONSTANT_Dynamic has been added to the
+        // LoadableValue index.
+        Entry[] deferredBsmCpMap = null;
+        int[][] deferredBsmRawArgCodes = null;
+        int     deferredPreDynamicLVSize = 0;
+
         for (int k = 0; k < ConstantPool.TAGS_IN_ORDER.length; k++) {
             byte tag = ConstantPool.TAGS_IN_ORDER[k];
             int  len = tagCount[tag];
@@ -850,15 +860,49 @@ class PackageReader extends BandStructure {
                            totalArgCount, MAX_TOTAL_BSM_ARG_COUNT);
                 cp_BootstrapMethod_arg.expectLength(totalArgCount);
                 cp_BootstrapMethod_arg.readFrom(in);
-                cp_BootstrapMethod_arg.setIndex(getCPIndex(CONSTANT_LoadableValue));
-                for (int i = 0; i < cpMap.length; i++) {
-                    MethodHandleEntry bsm = (MethodHandleEntry) cp_BootstrapMethod_ref.getRef();
-                    int argc = cp_BootstrapMethod_arg_count.getInt();
-                    Entry[] argRefs = new Entry[argc];
-                    for (int j = 0; j < argc; j++) {
-                        argRefs[j] = cp_BootstrapMethod_arg.getRef();
+                // Read raw arg codes rather than resolving through the LoadableValue
+                // index immediately.  CONSTANT_Dynamic is a loadable value but appears
+                // *after* CONSTANT_BootstrapMethod in TAGS_IN_ORDER, so the
+                // LoadableValue index is not yet complete at this point.  Codes that
+                // fall within the current index size are resolved now; codes at or
+                // beyond it (must be CONSTANT_Dynamic) are stored for a post-loop
+                // fixup pass after CONSTANT_Dynamic has been initialised.
+                {
+                    Index curLV = getCPIndex(CONSTANT_LoadableValue);
+                    int curLVSize = curLV.size();
+                    boolean hasDeferredArgs = false;
+                    int[][] rawArgCodes = new int[cpMap.length][];
+                    for (int i = 0; i < cpMap.length; i++) {
+                        MethodHandleEntry bsm =
+                                (MethodHandleEntry) cp_BootstrapMethod_ref.getRef();
+                        int argc = cp_BootstrapMethod_arg_count.getInt();
+                        rawArgCodes[i] = new int[argc];
+                        Entry[] argRefs = new Entry[argc];
+                        for (int j = 0; j < argc; j++) {
+                            int rawCode = cp_BootstrapMethod_arg.getValue();
+                            rawArgCodes[i][j] = rawCode;
+                            if (rawCode < curLVSize) {
+                                argRefs[j] = curLV.getEntry(rawCode);
+                            } else {
+                                // Placeholder until CONSTANT_Dynamic is in LoadableValue.
+                                // The placeholder must not collide with any real loadable
+                                // constant used as a BSM arg in another BSM in this archive.
+                                // We use a string containing null bytes (\u0000), which
+                                // cannot appear in valid Java identifiers, class names, or
+                                // method descriptors, and include the unique (i,j) index to
+                                // prevent two deferred BSMs sharing an intern entry.
+                                argRefs[j] = ConstantPool.getUtf8Entry(
+                                        "\u0000BSMDeferred\u0000" + i + "\u0000" + j);
+                                hasDeferredArgs = true;
+                            }
+                        }
+                        cpMap[i] = ConstantPool.getBootstrapMethodEntry(bsm, argRefs);
                     }
-                    cpMap[i] = ConstantPool.getBootstrapMethodEntry(bsm, argRefs);
+                    if (hasDeferredArgs) {
+                        deferredBsmCpMap         = cpMap;
+                        deferredBsmRawArgCodes   = rawArgCodes;
+                        deferredPreDynamicLVSize = curLVSize;
+                    }
                 }
                 cp_BootstrapMethod_ref.doneDisbursing();
                 cp_BootstrapMethod_arg_count.doneDisbursing();
@@ -873,6 +917,23 @@ class PackageReader extends BandStructure {
             if (optDumpBands) {
                 try (PrintStream ps = new PrintStream(getDumpStream(index, ".idx"))) {
                     printArrayTo(ps, index.cpMap, 0, index.cpMap.length);
+                }
+            }
+        }
+
+        // Post-loop fixup: resolve any CONSTANT_Dynamic BSM args that could not
+        // be resolved during the BootstrapMethod pass because CONSTANT_Dynamic
+        // appeared later in TAGS_IN_ORDER (and hence later in the LoadableValue
+        // group index).  The LoadableValue index is now complete.
+        if (deferredBsmCpMap != null) {
+            Index completeLV = getCPIndex(CONSTANT_LoadableValue);
+            for (int i = 0; i < deferredBsmCpMap.length; i++) {
+                BootstrapMethodEntry bsm = (BootstrapMethodEntry) deferredBsmCpMap[i];
+                for (int j = 0; j < deferredBsmRawArgCodes[i].length; j++) {
+                    int rawCode = deferredBsmRawArgCodes[i][j];
+                    if (rawCode >= deferredPreDynamicLVSize) {
+                        bsm.argRefs[j] = decodeRef(rawCode, completeLV);
+                    }
                 }
             }
         }

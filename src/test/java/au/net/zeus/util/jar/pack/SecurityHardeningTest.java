@@ -24,6 +24,7 @@ import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -32,9 +33,12 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.jar.Attributes;
+import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarInputStream;
 import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -587,6 +591,106 @@ public class SecurityHardeningTest {
     }
 
     // -----------------------------------------------------------------------
+    // 14. CONSTANT_Dynamic as a bootstrap-method static argument
+    //
+    //     JDK 25+ class files use CONSTANT_Dynamic entries as static
+    //     arguments to bootstrap methods (e.g. to pass a Class literal for a
+    //     primitive type to a condy resolver).  The original single-pass
+    //     ClassReader.readBootstrapMethods() immediately tried to intern a
+    //     BootstrapMethodEntry via getBootstrapMethodEntry(), which called
+    //     stringValue() on each argument.  A CONSTANT_Dynamic argument was
+    //     still an UnresolvedEntry at that point, so stringValue() threw
+    //     RuntimeException("unresolved entry has no string").
+    //
+    //     The fix changes readBootstrapMethods() to a two-pass approach:
+    //       Pass 1 – read raw table data; args may be UnresolvedEntry.
+    //       Pass 2 – resolve CONSTANT_Dynamic args in dependency order
+    //                (recursive descent with cycle detection), then intern.
+    // -----------------------------------------------------------------------
+
+    /**
+     * {@link ClassReader} must correctly parse a {@code BootstrapMethods}
+     * attribute whose second BSM has a {@code CONSTANT_Dynamic} entry as its
+     * sole static argument (the dynamic constant itself references the first
+     * BSM).  Before the fix, this threw
+     * {@code RuntimeException("unresolved entry has no string")}.
+     */
+    @Test
+    public void testReadBootstrapMethodsWithCondyArg() throws Exception {
+        byte[] classBytes = buildCondyArgClassFile();
+
+        Utils.currentInstance.set(new TLGlobals());
+        try {
+            Package pkg = new Package();
+            Package.Class cls = pkg.new Class("TestCondyBsmArg.class");
+            new ClassReader(cls, new ByteArrayInputStream(classBytes)).read();
+
+            List<ConstantPool.BootstrapMethodEntry> bsms = cls.getBootstrapMethods();
+            assertEquals("Expected 2 bootstrap methods", 2, bsms.size());
+            assertEquals("BSM[0] must have 0 args", 0, bsms.get(0).argRefs.length);
+            assertEquals("BSM[1] must have 1 arg",  1, bsms.get(1).argRefs.length);
+            assertTrue("BSM[1] arg[0] must be a DynamicEntry",
+                       bsms.get(1).argRefs[0] instanceof ConstantPool.DynamicEntry);
+            ConstantPool.DynamicEntry de =
+                    (ConstantPool.DynamicEntry) bsms.get(1).argRefs[0];
+            assertEquals("DynamicEntry bssRef must equal BSM[0]",
+                         bsms.get(0), de.bssRef);
+        } finally {
+            Utils.currentInstance.set(null);
+        }
+    }
+
+    /**
+     * A class file where a bootstrap method static argument is a
+     * {@code CONSTANT_Dynamic} must survive a full pack/unpack round-trip
+     * without any exception.
+     */
+    @Test
+    public void testPackUnpackCondyArgClass() throws Exception {
+        byte[] classBytes = buildCondyArgClassFile();
+
+        // Build an in-memory JAR containing the synthetic class.
+        ByteArrayOutputStream jarBuf = new ByteArrayOutputStream();
+        Manifest mf = new Manifest();
+        mf.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
+        JarOutputStream jos = new JarOutputStream(jarBuf, mf);
+        JarEntry entry = new JarEntry("TestCondyBsmArg.class");
+        jos.putNextEntry(entry);
+        jos.write(classBytes);
+        jos.closeEntry();
+        jos.close();
+
+        // Pack via the streaming API (no temporary file required).
+        ByteArrayOutputStream packBuf = new ByteArrayOutputStream();
+        Pack200.newPacker().pack(
+                new JarInputStream(new ByteArrayInputStream(jarBuf.toByteArray())),
+                packBuf);
+
+        // Unpack.
+        ByteArrayOutputStream unpackBuf = new ByteArrayOutputStream();
+        JarOutputStream unpackJos = new JarOutputStream(unpackBuf);
+        try {
+            Pack200.newUnpacker().unpack(
+                    new ByteArrayInputStream(packBuf.toByteArray()), unpackJos);
+        } finally {
+            unpackJos.close();
+        }
+
+        // Verify the unpacked JAR is non-empty.
+        JarInputStream jis = new JarInputStream(
+                new ByteArrayInputStream(unpackBuf.toByteArray()));
+        int count = 0;
+        try {
+            while (jis.getNextJarEntry() != null) {
+                count++;
+            }
+        } finally {
+            jis.close();
+        }
+        assertTrue("Unpacked JAR must contain at least one entry", count > 0);
+    }
+
+    // -----------------------------------------------------------------------
     // helpers
     // -----------------------------------------------------------------------
 
@@ -620,5 +724,152 @@ public class SecurityHardeningTest {
             }
         }
         return null;
+    }
+
+    /**
+     * Builds a minimal Java 11 (major version 55) class file that exercises
+     * the "CONSTANT_Dynamic as bootstrap-method static argument" pattern used
+     * by JDK 25+ class files.
+     *
+     * <p>The class {@code TestCondyBsmArg} contains two bootstrap methods:</p>
+     * <ul>
+     *   <li>BSM[0] — a plain {@code REF_invokeStatic} method handle with no
+     *       static arguments</li>
+     *   <li>BSM[1] — the same method handle, but with {@code #15} (a
+     *       {@code CONSTANT_Dynamic} that itself references BSM[0]) as its
+     *       sole static argument</li>
+     * </ul>
+     *
+     * <p>Constant-pool layout (indices 1–25, {@code cp_count} = 26):</p>
+     * <pre>
+     *  #1  Utf8        "TestCondyBsmArg"
+     *  #2  Utf8        "java/lang/Object"
+     *  #3  Class       #1
+     *  #4  Class       #2
+     *  #5  Utf8        "Holder"
+     *  #6  Class       #5
+     *  #7  Utf8        "bsm"
+     *  #8  Utf8        "(Ljava/lang/invoke/MethodHandles$Lookup;...)Ljava/lang/Object;"
+     *  #9  NameAndType #7  #8
+     * #10  Methodref   #6  #9
+     * #11  MethodHandle REF_invokeStatic, #10
+     * #12  Utf8        "val"
+     * #13  Utf8        "Ljava/lang/Object;"
+     * #14  NameAndType #12 #13
+     * #15  Dynamic     bsm_index=0, #14   &lt;-- CONSTANT_Dynamic refs BSM[0]
+     * #16  Utf8        "test"
+     * #17  Utf8        "()Ljava/lang/Object;"
+     * #18  NameAndType #16 #17
+     * #19  InvokeDynamic bsm_index=1, #18
+     * #20  Utf8        "&lt;init&gt;"
+     * #21  Utf8        "()V"
+     * #22  NameAndType #20 #21
+     * #23  Methodref   #4  #22
+     * #24  Utf8        "Code"
+     * #25  Utf8        "BootstrapMethods"
+     * </pre>
+     *
+     * <p>Bootstrap methods table:</p>
+     * <pre>
+     *   BSM[0]: ref=#11, args=[]
+     *   BSM[1]: ref=#11, args=[#15]   &lt;-- CONSTANT_Dynamic as arg!
+     * </pre>
+     */
+    private static byte[] buildCondyArgClassFile() throws IOException {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        DataOutputStream out = new DataOutputStream(bos);
+
+        // ---- class file header ----
+        out.writeInt(0xCAFEBABE);  // magic
+        out.writeShort(0);          // minor_version
+        out.writeShort(55);         // major_version (Java 11; first to support CONSTANT_Dynamic)
+
+        // ---- constant pool (cp_count = 26, valid entries #1..#25) ----
+        out.writeShort(26);
+
+        out.writeByte(1);  out.writeUTF("TestCondyBsmArg");           // #1
+        out.writeByte(1);  out.writeUTF("java/lang/Object");          // #2
+        out.writeByte(7);  out.writeShort(1);                         // #3 Class #1
+        out.writeByte(7);  out.writeShort(2);                         // #4 Class #2
+        out.writeByte(1);  out.writeUTF("Holder");                    // #5
+        out.writeByte(7);  out.writeShort(5);                         // #6 Class #5
+        out.writeByte(1);  out.writeUTF("bsm");                       // #7
+        out.writeByte(1);                                              // #8 (BSM descriptor)
+        out.writeUTF("(Ljava/lang/invoke/MethodHandles$Lookup;"
+                   + "Ljava/lang/String;Ljava/lang/Class;)Ljava/lang/Object;");
+        out.writeByte(12); out.writeShort(7);  out.writeShort(8);     // #9  NameAndType #7 #8
+        out.writeByte(10); out.writeShort(6);  out.writeShort(9);     // #10 Methodref #6 #9
+        out.writeByte(15); out.writeByte(6);   out.writeShort(10);    // #11 MethodHandle invStatic #10
+        out.writeByte(1);  out.writeUTF("val");                       // #12
+        out.writeByte(1);  out.writeUTF("Ljava/lang/Object;");        // #13
+        out.writeByte(12); out.writeShort(12); out.writeShort(13);    // #14 NameAndType #12 #13
+        out.writeByte(17); out.writeShort(0);  out.writeShort(14);    // #15 Dynamic bsm=0 nat=#14
+        out.writeByte(1);  out.writeUTF("test");                      // #16
+        out.writeByte(1);  out.writeUTF("()Ljava/lang/Object;");      // #17
+        out.writeByte(12); out.writeShort(16); out.writeShort(17);    // #18 NameAndType #16 #17
+        out.writeByte(18); out.writeShort(1);  out.writeShort(18);    // #19 InvokeDynamic bsm=1 nat=#18
+        out.writeByte(1);  out.writeUTF("<init>");                    // #20
+        out.writeByte(1);  out.writeUTF("()V");                       // #21
+        out.writeByte(12); out.writeShort(20); out.writeShort(21);    // #22 NameAndType #20 #21
+        out.writeByte(10); out.writeShort(4);  out.writeShort(22);    // #23 Methodref #4 #22
+        out.writeByte(1);  out.writeUTF("Code");                      // #24
+        out.writeByte(1);  out.writeUTF("BootstrapMethods");          // #25
+
+        // ---- class header ----
+        out.writeShort(0x0001);  // access_flags = ACC_PUBLIC
+        out.writeShort(3);        // this_class  = #3
+        out.writeShort(4);        // super_class = #4
+        out.writeShort(0);        // interfaces_count
+
+        // ---- fields: none ----
+        out.writeShort(0);
+
+        // ---- methods ----
+        out.writeShort(2);
+
+        // <init>()V : aload_0, invokespecial #23 (0x17), return
+        out.writeShort(0x0001); out.writeShort(20); out.writeShort(21);
+        out.writeShort(1);  // attributes_count
+        writeCodeAttr(out, 24, 1, 1,
+                new byte[]{ 0x2a, (byte) 0xb7, 0x00, 23, (byte) 0xb1 });
+
+        // test()Ljava/lang/Object; : invokedynamic #19 0 0, areturn
+        out.writeShort(0x0009); out.writeShort(16); out.writeShort(17);
+        out.writeShort(1);  // attributes_count
+        writeCodeAttr(out, 24, 1, 0,
+                new byte[]{ (byte) 0xba, 0x00, 19, 0x00, 0x00, (byte) 0xb0 });
+
+        // ---- class attributes: BootstrapMethods ----
+        // BSM[0]: ref=#11, nargs=0          → 4 bytes
+        // BSM[1]: ref=#11, nargs=1, arg=#15 → 6 bytes
+        // body = 2 (count) + 4 + 6 = 12 bytes
+        out.writeShort(1);          // attributes_count
+        out.writeShort(25);         // attribute_name_index = #25
+        out.writeInt(12);           // attribute_length
+        out.writeShort(2);          // num_bootstrap_methods
+        out.writeShort(11); out.writeShort(0);                          // BSM[0]: ref=#11, nargs=0
+        out.writeShort(11); out.writeShort(1); out.writeShort(15);      // BSM[1]: ref=#11, nargs=1, arg=#15
+
+        out.flush();
+        return bos.toByteArray();
+    }
+
+    /**
+     * Writes a {@code Code} attribute with the supplied code bytes and no
+     * exception table or nested attributes.
+     */
+    private static void writeCodeAttr(DataOutputStream out, int nameIdx,
+                                      int maxStack, int maxLocals,
+                                      byte[] code) throws IOException {
+        // body = max_stack(2) + max_locals(2) + code_length(4) + code + ex_table_length(2) + attrs_count(2)
+        int bodyLen = 2 + 2 + 4 + code.length + 2 + 2;
+        out.writeShort(nameIdx);
+        out.writeInt(bodyLen);
+        out.writeShort(maxStack);
+        out.writeShort(maxLocals);
+        out.writeInt(code.length);
+        out.write(code);
+        out.writeShort(0);  // exception_table_length
+        out.writeShort(0);  // attributes_count
     }
 }
