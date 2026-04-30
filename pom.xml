@@ -169,6 +169,7 @@
                             <target>
                                 <ant antfile="./test/build.xml">
                                     <target name="test"/>
+                                    <property name="version" value="-${project.version}"/>
                                 </ant>
                             </target>
                         </configuration>
