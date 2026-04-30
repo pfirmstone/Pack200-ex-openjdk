@@ -305,6 +305,12 @@ class PackageWriter extends BandStructure {
             }
         }
 
+        // Decide if any record component has sub-attributes (Signature,
+        // annotations, etc.) — these require the rc_attr_bands (AO_HAVE_RC_ATTRS).
+        if (anyRecordComponentHasSubAttrs()) {
+            archiveOptions |= AO_HAVE_RC_ATTRS;
+        }
+
         // Decide if code attributes typically have sub-attributes.
         // In that case, to preserve compact 1-byte code headers,
         // we must declare unconditional presence of code flags.
@@ -335,6 +341,18 @@ class PackageWriter extends BandStructure {
         chooseDefaultPackageVersion();
         writeArchiveMagic();
         writeArchiveHeader();
+    }
+
+    /** Returns true iff at least one record component in the package has one
+     *  or more sub-attributes (Signature, annotations, etc.). */
+    private boolean anyRecordComponentHasSubAttrs() {
+        for (Class cls : pkg.classes) {
+            if (cls.recordComponents == null) continue;
+            for (Package.RecordComponent rc : cls.recordComponents) {
+                if (rc.attributeSize() > 0) return true;
+            }
+        }
+        return false;
     }
 
     // Local routine used to format fixed-format scalars
@@ -914,6 +932,12 @@ class PackageWriter extends BandStructure {
                     visitAttributeLayoutsIn(ATTR_CONTEXT_CODE, m.code);
                 }
             }
+            // Collect attribute layouts for record component sub-attributes.
+            if (cls.recordComponents != null) {
+                for (Package.RecordComponent rc : cls.recordComponents) {
+                    visitAttributeLayoutsIn(ATTR_CONTEXT_RECORD_COMPONENT, rc);
+                }
+            }
         }
         // If there are many species of attributes, use 63-bit flags.
         for (int i = 0; i < ATTR_CONTEXT_LIMIT; i++) {
@@ -922,7 +946,9 @@ class PackageWriter extends BandStructure {
             final int TOO_MANY_ATTRS = 32 /*int flag size*/
                 - 12 /*typical flag bits in use*/
                 + 4  /*typical number of OK overflows*/;
-            if (nl >= TOO_MANY_ATTRS) {  // heuristic
+            // Record components always use 32-bit flags; no flags_hi bit is
+            // available for them (bit 13 is AO_HAVE_CP_MODULE_DYNAMIC).
+            if (nl >= TOO_MANY_ATTRS && i != ATTR_CONTEXT_RECORD_COMPONENT) {
                 int mask = 1<<(LG_AO_HAVE_XXX_FLAGS_HI+i);
                 archiveOptions |= mask;
                 haveLongFlags = true;
@@ -933,7 +959,9 @@ class PackageWriter extends BandStructure {
                 Utils.log.fine(Attribute.contextName(i)+".maxFlags = 0x"+Integer.toHexString(maxFlags[i]));
                 Utils.log.fine(Attribute.contextName(i)+".#layouts = "+nl);
             }
-            assert(haveFlagsHi(i) == haveLongFlags);
+            if (i != ATTR_CONTEXT_RECORD_COMPONENT) {
+                assert(haveFlagsHi(i) == haveLongFlags);
+            }
         }
         initAttrIndexLimit();
 
@@ -1289,6 +1317,17 @@ class PackageWriter extends BandStructure {
             nwritten++;
             if (verbose > 0 && (nwritten % 1000) == 0)
                 Utils.log.info("Have scanned "+nwritten+" classes...");
+        }
+
+        // Second pass: write record component sub-attributes (in the same
+        // class order) when AO_HAVE_RC_ATTRS is set.
+        if (testBit(archiveOptions, AO_HAVE_RC_ATTRS)) {
+            for (Class cls : classes) {
+                if (cls.recordComponents == null) continue;
+                for (Package.RecordComponent rc : cls.recordComponents) {
+                    writeAttrs(ATTR_CONTEXT_RECORD_COMPONENT, rc, cls);
+                }
+            }
         }
     }
 

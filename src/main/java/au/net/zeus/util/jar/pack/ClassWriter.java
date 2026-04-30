@@ -334,7 +334,7 @@ class ClassWriter {
         for (Package.RecordComponent rc : comps) {
             writeRef(rc.name);
             writeRef(rc.type);
-            writeShort(0);  // attributes_count = 0; sub-attrs stripped during packing
+            writeAttributes(ATTR_CONTEXT_RECORD_COMPONENT, rc);
         }
     }
 }

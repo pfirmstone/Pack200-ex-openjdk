@@ -703,15 +703,11 @@ class ClassReader {
         for (int i = 0; i < nc; i++) {
             Utf8Entry      name = readUtf8Ref();
             SignatureEntry type = readSignatureRef(); // descriptor stored as Utf8 in class file
-            int nAttrs = readUnsignedShort();
-            if (nAttrs > 0) {
-                // Record components with sub-attributes cannot be compressed
-                // natively; pass the entire Record attribute through instead.
-                String message = "Record component sub-attributes are not supported";
-                throw new Attribute.FormatException(message,
-                        ATTR_CONTEXT_CLASS, "Record", "pass");
-            }
-            comps.add(new Package.RecordComponent(name, type));
+            Package.RecordComponent rc = new Package.RecordComponent(name, type, cls);
+            // Read sub-attributes (Signature, annotations, etc.) using the
+            // standard readAttributes path with the RC context.
+            readAttributes(ATTR_CONTEXT_RECORD_COMPONENT, rc);
+            comps.add(rc);
         }
         cls.recordComponents = comps;
     }

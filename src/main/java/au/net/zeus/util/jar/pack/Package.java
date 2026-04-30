@@ -660,11 +660,10 @@ class Package {
                 }
             }
             visitInnerClassRefs(mode, refs);
-            // Include record component CP refs if present.
+            // Include record component CP refs (and any sub-attribute refs) if present.
             if (recordComponents != null) {
                 for (RecordComponent rc : recordComponents) {
-                    refs.add(rc.name);
-                    refs.add(rc.type);
+                    rc.visitRefs(mode, refs);
                 }
             }
             // Handle attribute list:
@@ -943,16 +942,35 @@ class Package {
         return allInnerClassesByThis.get(thisClass);
     }
 
-    /** Represents a single record component (name, descriptor) of a Record class.
-     *  Record component sub-attributes are not currently encoded in pack200 bands;
-     *  components with sub-attributes cause the class to be passed through. */
-    static class RecordComponent {
+    /** Represents a single record component (name, descriptor, and optional
+     *  sub-attributes) of a Record class (Java 16+, JVMS 4.7.23). */
+    static class RecordComponent extends Attribute.Holder {
         final Utf8Entry name;
         final SignatureEntry type;
+        // Back-reference to the declaring class so getCPMap() can delegate.
+        private final Class declClass;
 
-        RecordComponent(Utf8Entry name, SignatureEntry type) {
+        RecordComponent(Utf8Entry name, SignatureEntry type, Class cls) {
             this.name = name;
             this.type = type;
+            this.declClass = cls;
+        }
+
+        @Override
+        protected Entry[] getCPMap() {
+            return declClass.getCPMap();
+        }
+
+        @Override
+        protected void visitRefs(int mode, Collection<Entry> refs) {
+            refs.add(name);
+            refs.add(type);
+            super.visitRefs(mode, refs);
+        }
+
+        @Override
+        public String toString() {
+            return name + ":" + type;
         }
     }
 

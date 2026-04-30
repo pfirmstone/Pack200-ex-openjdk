@@ -1647,6 +1647,20 @@ class BandStructure {
     IntBand   class_PermittedSubclasses_N  = class_attr_bands.newIntBand("class_PermittedSubclasses_N");
     CPRefBand class_PermittedSubclasses_RC = class_attr_bands.newCPRefBand("class_PermittedSubclasses_RC", CONSTANT_Class);
 
+    // Bands for record component sub-attributes (Java 16+, present only when AO_HAVE_RC_ATTRS is set).
+    // Parallel structure to field_attr_bands / method_attr_bands.
+    // They are placed here (between class_attr_bands and code_bands) because
+    // record components logically belong to the class context.
+    MultiBand rc_attr_bands = class_bands.newMultiBand("(rc_attr_bands)", UNSIGNED5);
+    IntBand   rc_flags_hi     = rc_attr_bands.newIntBand("rc_flags_hi");     // AB_FLAGS_HI  (index 0) – always empty (no flags_hi for RC)
+    IntBand   rc_flags_lo     = rc_attr_bands.newIntBand("rc_flags_lo");     // AB_FLAGS_LO  (index 1)
+    IntBand   rc_attr_count   = rc_attr_bands.newIntBand("rc_attr_count");   // AB_ATTR_COUNT (index 2)
+    IntBand   rc_attr_indexes = rc_attr_bands.newIntBand("rc_attr_indexes"); // AB_ATTR_INDEXES (index 3)
+    IntBand   rc_attr_calls   = rc_attr_bands.newIntBand("rc_attr_calls");   // AB_ATTR_CALLS (index 4)
+    CPRefBand rc_Signature_RS = rc_attr_bands.newCPRefBand("rc_Signature_RS", CONSTANT_Signature);
+    MultiBand rc_metadata_bands      = rc_attr_bands.newMultiBand("(rc_metadata_bands)", UNSIGNED5);
+    MultiBand rc_type_metadata_bands = rc_attr_bands.newMultiBand("(rc_type_metadata_bands)", UNSIGNED5);
+
     MultiBand code_bands = class_bands.newMultiBand("(code_bands)", UNSIGNED5);
     ByteBand  code_headers = code_bands.newByteBand("code_headers"); //BYTE1
     IntBand   code_max_stack = code_bands.newIntBand("code_max_stack", UNSIGNED5);
@@ -1794,17 +1808,19 @@ class BandStructure {
     // Table of bands which contain metadata.
     protected MultiBand[] metadataBands = new MultiBand[ATTR_CONTEXT_LIMIT];
     {
-        metadataBands[ATTR_CONTEXT_CLASS] = class_metadata_bands;
-        metadataBands[ATTR_CONTEXT_FIELD] = field_metadata_bands;
-        metadataBands[ATTR_CONTEXT_METHOD] = method_metadata_bands;
+        metadataBands[ATTR_CONTEXT_CLASS]             = class_metadata_bands;
+        metadataBands[ATTR_CONTEXT_FIELD]             = field_metadata_bands;
+        metadataBands[ATTR_CONTEXT_METHOD]            = method_metadata_bands;
+        metadataBands[ATTR_CONTEXT_RECORD_COMPONENT]  = rc_metadata_bands;
     }
     // Table of bands which contains type_metadata (TypeAnnotations)
     protected MultiBand[] typeMetadataBands = new MultiBand[ATTR_CONTEXT_LIMIT];
     {
-        typeMetadataBands[ATTR_CONTEXT_CLASS] = class_type_metadata_bands;
-        typeMetadataBands[ATTR_CONTEXT_FIELD] = field_type_metadata_bands;
-        typeMetadataBands[ATTR_CONTEXT_METHOD] = method_type_metadata_bands;
-        typeMetadataBands[ATTR_CONTEXT_CODE]   = code_type_metadata_bands;
+        typeMetadataBands[ATTR_CONTEXT_CLASS]             = class_type_metadata_bands;
+        typeMetadataBands[ATTR_CONTEXT_FIELD]             = field_type_metadata_bands;
+        typeMetadataBands[ATTR_CONTEXT_METHOD]            = method_type_metadata_bands;
+        typeMetadataBands[ATTR_CONTEXT_CODE]              = code_type_metadata_bands;
+        typeMetadataBands[ATTR_CONTEXT_RECORD_COMPONENT]  = rc_type_metadata_bands;
     }
 
     // Attribute layouts.
@@ -1936,6 +1952,16 @@ class BandStructure {
         //predefineAttribute(X_ATTR_Synthetic, ATTR_CONTEXT_METHOD, null,
         //                 "Synthetic", "");
         predefineAttribute(X_ATTR_OVERFLOW, ATTR_CONTEXT_METHOD, null,
+                           ".Overflow", "");
+
+        // Record component context: Signature, Deprecated, and Overflow.
+        // Annotations are handled by the loop below (ctype != ATTR_CONTEXT_CODE).
+        predefineAttribute(X_ATTR_Signature, ATTR_CONTEXT_RECORD_COMPONENT,
+                           new Band[] { rc_Signature_RS },
+                           "Signature", "RSH");
+        predefineAttribute(X_ATTR_Deprecated, ATTR_CONTEXT_RECORD_COMPONENT, null,
+                           "Deprecated", "");
+        predefineAttribute(X_ATTR_OVERFLOW, ATTR_CONTEXT_RECORD_COMPONENT, null,
                            ".Overflow", "");
 
         for (int ctype = 0; ctype < ATTR_CONTEXT_LIMIT; ctype++) {
@@ -2072,6 +2098,55 @@ class BandStructure {
             class_PermittedSubclasses_N.doneWithUnusedBand();
             class_PermittedSubclasses_RC.doneWithUnusedBand();
         }
+        // Gate rc_attr_bands on AO_HAVE_RC_ATTRS.  When the bit is clear the
+        // bands are excluded from the stream entirely (zero bytes written / read).
+        if (!testBit(archiveOptions, AO_HAVE_RC_ATTRS)) {
+            freezeRCAttrBands();
+        }
+    }
+
+    /**
+     * Freeze all rc_attr_bands when AO_HAVE_RC_ATTRS is not set so that they
+     * are excluded from the stream and no bytes are wasted.
+     *
+     * Writer side: transitions each band from COLLECT_PHASE to FROZEN_PHASE.
+     * Reader side: fast-forwards each plain band from EXPECT_PHASE to DONE_PHASE
+     *   and calls doneDisbursing() on MultiBands (which start in DISBURSE_PHASE).
+     */
+    private void freezeRCAttrBands() {
+        // The five structural/infrastructure bands inside rc_attr_bands are
+        // NOT registered in attrBandTable, so they must be frozen explicitly:
+        rc_flags_hi.doneWithUnusedBand();
+        rc_flags_lo.doneWithUnusedBand();
+        rc_attr_count.doneWithUnusedBand();
+        rc_attr_indexes.doneWithUnusedBand();
+        rc_attr_calls.doneWithUnusedBand();
+
+        // Attribute-specific bands (Signature, RVA, RIA, RVTA, RITA …) live
+        // inside rc_metadata_bands / rc_type_metadata_bands and ARE registered
+        // in attrBandTable.  Freeze them via that table so we don't freeze any
+        // band twice.
+        List<Attribute.Layout> rcDefs = attrDefs.get(ATTR_CONTEXT_RECORD_COMPONENT);
+        for (int ai = 0; ai < rcDefs.size(); ai++) {
+            Attribute.Layout def = rcDefs.get(ai);
+            if (def == null || def.bandCount == 0) continue;
+            Band[] ab = attrBandTable.get(def);
+            if (ab != null) {
+                for (Band b : ab) b.doneWithUnusedBand();
+            }
+        }
+
+        // MultiBands start in DISBURSE_PHASE on the reader side and
+        // COLLECT_PHASE on the writer side:
+        if (rc_metadata_bands.isReader()) {
+            rc_metadata_bands.doneDisbursing();
+            rc_type_metadata_bands.doneDisbursing();
+            rc_attr_bands.doneDisbursing();
+        } else {
+            rc_metadata_bands.doneWithUnusedBand();
+            rc_type_metadata_bands.doneWithUnusedBand();
+            rc_attr_bands.doneWithUnusedBand();
+        }
     }
 
     /** Register predefined class attributes at flag indices 32-33, which are
@@ -2100,6 +2175,11 @@ class BandStructure {
             assert(mask == AO_HAVE_METHOD_FLAGS_HI); break;
         case ATTR_CONTEXT_CODE:
             assert(mask == AO_HAVE_CODE_FLAGS_HI); break;
+        case ATTR_CONTEXT_RECORD_COMPONENT:
+            // Record components never use 63-bit flags: bit 13 (which would be
+            // 1<<(LG_AO_HAVE_XXX_FLAGS_HI+4)) is already allocated to
+            // AO_HAVE_CP_MODULE_DYNAMIC and cannot be repurposed here.
+            return false;
         default:
             assert(false);
         }
@@ -2276,10 +2356,11 @@ class BandStructure {
     // Bands which contain non-predefined attrs.
     protected MultiBand[] attrBands = new MultiBand[ATTR_CONTEXT_LIMIT];
     {
-        attrBands[ATTR_CONTEXT_CLASS] = class_attr_bands;
-        attrBands[ATTR_CONTEXT_FIELD] = field_attr_bands;
-        attrBands[ATTR_CONTEXT_METHOD] = method_attr_bands;
-        attrBands[ATTR_CONTEXT_CODE] = code_attr_bands;
+        attrBands[ATTR_CONTEXT_CLASS]             = class_attr_bands;
+        attrBands[ATTR_CONTEXT_FIELD]             = field_attr_bands;
+        attrBands[ATTR_CONTEXT_METHOD]            = method_attr_bands;
+        attrBands[ATTR_CONTEXT_CODE]              = code_attr_bands;
+        attrBands[ATTR_CONTEXT_RECORD_COMPONENT]  = rc_attr_bands;
     }
 
     // Create bands for all non-predefined attrs.
