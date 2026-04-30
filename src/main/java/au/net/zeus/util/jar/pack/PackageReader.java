@@ -1385,7 +1385,7 @@ class PackageReader extends BandStructure {
         for (int i = 0; i < nc; i++) {
             Utf8Entry      name = (Utf8Entry)      class_Record_name_RU.getRef();
             SignatureEntry type = (SignatureEntry)  class_Record_type_RS.getRef();
-            comps.add(new Package.RecordComponent(name, type));
+            comps.add(new Package.RecordComponent(cls, name, type));
         }
         cls.recordComponents = new ArrayList<>(comps);
     }
@@ -2302,9 +2302,47 @@ class PackageReader extends BandStructure {
         readAttrs(ATTR_CONTEXT_CODE, codesWithFlags);
         // Ditto for exception handlers in codes.
         fixupCodeHandlers();
+        // Read record component sub-attributes (only when AO_HAVE_CLASS_FLAGS_HI
+        // is set, i.e. when Record and PermittedSubclasses bands are active).
+        if (testBit(archiveOptions, AO_HAVE_CLASS_FLAGS_HI)) {
+            List<Package.RecordComponent> allComps = new ArrayList<>();
+            for (Package.Class cls : pkg.classes) {
+                if (cls.recordComponents != null)
+                    allComps.addAll(cls.recordComponents);
+            }
+            countAndReadAttrs(ATTR_CONTEXT_RECORD_COMPONENT, allComps);
+        } else {
+            // record_comp_attr_bands are not in the stream; cycle through
+            // the phases of every sub-band so that class_bands.doneDisbursing
+            // does not see bands still in their initial phase.
+            skipRecordCompAttrBands();
+        }
         // Now we can finish with class_bands; cf. readClasses().
         code_bands.doneDisbursing();
         class_bands.doneDisbursing();
+    }
+
+    /** Complete the lifecycle of all record_comp_attr_bands sub-bands when
+     *  those bands were not included in the stream (AO_HAVE_CLASS_FLAGS_HI
+     *  is not set). */
+    private void skipRecordCompAttrBands() {
+        // Atomic sub-bands: fast-forward from EXPECT to DONE
+        record_comp_flags_hi.doneWithUnusedBand();
+        record_comp_flags_lo.doneWithUnusedBand();
+        record_comp_attr_count.doneWithUnusedBand();
+        record_comp_attr_indexes.doneWithUnusedBand();
+        record_comp_attr_calls.doneWithUnusedBand();
+        record_comp_Signature_RS.doneWithUnusedBand();
+        // MultiBand record_comp_metadata_bands and record_comp_type_metadata_bands
+        // contain dynamically-created annotation bands.  Iterate their children
+        // and fast-forward each, then call doneDisbursing on the MultiBand itself.
+        for (int i = 0; i < record_comp_metadata_bands.size(); i++)
+            record_comp_metadata_bands.get(i).doneWithUnusedBand();
+        record_comp_metadata_bands.doneDisbursing();
+        for (int i = 0; i < record_comp_type_metadata_bands.size(); i++)
+            record_comp_type_metadata_bands.get(i).doneWithUnusedBand();
+        record_comp_type_metadata_bands.doneDisbursing();
+        record_comp_attr_bands.doneDisbursing();
     }
 
     private void readByteCodeOps() throws IOException {

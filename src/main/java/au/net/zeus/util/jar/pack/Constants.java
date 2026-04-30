@@ -274,13 +274,14 @@ class Constants {
     public static final int ACC_IC_LONG_FORM   = (1<<16); //for ic_flags
 
     // attribute "context types"
-    public static final int ATTR_CONTEXT_CLASS  = 0;
-    public static final int ATTR_CONTEXT_FIELD  = 1;
-    public static final int ATTR_CONTEXT_METHOD = 2;
-    public static final int ATTR_CONTEXT_CODE   = 3;
-    public static final int ATTR_CONTEXT_LIMIT  = 4;
+    public static final int ATTR_CONTEXT_CLASS             = 0;
+    public static final int ATTR_CONTEXT_FIELD             = 1;
+    public static final int ATTR_CONTEXT_METHOD            = 2;
+    public static final int ATTR_CONTEXT_CODE              = 3;
+    public static final int ATTR_CONTEXT_RECORD_COMPONENT  = 4;
+    public static final int ATTR_CONTEXT_LIMIT             = 5;
     public static final String[] ATTR_CONTEXT_NAME
-        = { "class", "field", "method", "code" };
+        = { "class", "field", "method", "code", "record_component" };
 
     // predefined attr bits
     public static final int

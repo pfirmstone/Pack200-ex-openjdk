@@ -665,6 +665,7 @@ class Package {
                 for (RecordComponent rc : recordComponents) {
                     refs.add(rc.name);
                     refs.add(rc.type);
+                    rc.visitRefs(mode, refs);
                 }
             }
             // Handle attribute list:
@@ -944,15 +945,22 @@ class Package {
     }
 
     /** Represents a single record component (name, descriptor) of a Record class.
-     *  Record component sub-attributes are not currently encoded in pack200 bands;
-     *  components with sub-attributes cause the class to be passed through. */
-    static class RecordComponent {
+     *  Record component sub-attributes are encoded in record_comp_attr_bands. */
+    static class RecordComponent extends Attribute.Holder {
         final Utf8Entry name;
         final SignatureEntry type;
+        /** Back-reference to the enclosing class, for CP-map access. */
+        final Class cls;
 
-        RecordComponent(Utf8Entry name, SignatureEntry type) {
+        RecordComponent(Class cls, Utf8Entry name, SignatureEntry type) {
+            this.cls = cls;
             this.name = name;
             this.type = type;
+        }
+
+        @Override
+        protected Entry[] getCPMap() {
+            return cls.getCPMap();
         }
     }
 

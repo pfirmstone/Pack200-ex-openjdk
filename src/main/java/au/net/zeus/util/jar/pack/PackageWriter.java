@@ -78,6 +78,7 @@ class PackageWriter extends BandStructure {
             writeAttrDefs();
             writeInnerClasses();
             writeClassesAndByteCodes();
+            writeRecordCompAttrs();
             writeAttrCounts();
 
             if (verbose > 1)  printCodeHist();
@@ -914,6 +915,11 @@ class PackageWriter extends BandStructure {
                     visitAttributeLayoutsIn(ATTR_CONTEXT_CODE, m.code);
                 }
             }
+            if (cls.recordComponents != null) {
+                for (Package.RecordComponent rc : cls.recordComponents) {
+                    visitAttributeLayoutsIn(ATTR_CONTEXT_RECORD_COMPONENT, rc);
+                }
+            }
         }
         // If there are many species of attributes, use 63-bit flags.
         for (int i = 0; i < ATTR_CONTEXT_LIMIT; i++) {
@@ -922,7 +928,11 @@ class PackageWriter extends BandStructure {
             final int TOO_MANY_ATTRS = 32 /*int flag size*/
                 - 12 /*typical flag bits in use*/
                 + 4  /*typical number of OK overflows*/;
-            if (nl >= TOO_MANY_ATTRS) {  // heuristic
+            // ATTR_CONTEXT_RECORD_COMPONENT (4) does not get its own HI-flags
+            // bit; the 2-bit context field in attr_definition_headers only
+            // encodes values 0-3.  Record-component attrs are always predefined,
+            // so this branch should never fire for ctype==4.
+            if (nl >= TOO_MANY_ATTRS && i != ATTR_CONTEXT_RECORD_COMPONENT) {
                 int mask = 1<<(LG_AO_HAVE_XXX_FLAGS_HI+i);
                 archiveOptions |= mask;
                 haveLongFlags = true;
@@ -1253,6 +1263,15 @@ class PackageWriter extends BandStructure {
         for (Package.RecordComponent rc : comps) {
             class_Record_name_RU.putRef(rc.name);
             class_Record_type_RS.putRef(rc.type);
+        }
+    }
+
+    void writeRecordCompAttrs() throws IOException {
+        for (Class cls : pkg.classes) {
+            if (cls.recordComponents == null) continue;
+            for (Package.RecordComponent rc : cls.recordComponents) {
+                writeAttrs(ATTR_CONTEXT_RECORD_COMPONENT, rc, cls);
+            }
         }
     }
 

@@ -340,10 +340,11 @@ class Attribute implements Comparable<Attribute> {
 
     public static String contextName(int ctype) {
         switch (ctype) {
-        case ATTR_CONTEXT_CLASS: return "class";
-        case ATTR_CONTEXT_FIELD: return "field";
-        case ATTR_CONTEXT_METHOD: return "method";
-        case ATTR_CONTEXT_CODE: return "code";
+        case ATTR_CONTEXT_CLASS:            return "class";
+        case ATTR_CONTEXT_FIELD:            return "field";
+        case ATTR_CONTEXT_METHOD:           return "method";
+        case ATTR_CONTEXT_CODE:             return "code";
+        case ATTR_CONTEXT_RECORD_COMPONENT: return "record_component";
         }
         return null;
     }
