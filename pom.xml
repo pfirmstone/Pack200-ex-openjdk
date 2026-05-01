@@ -31,7 +31,7 @@
 
     <groupId>au.net.zeus.pack200-ex-openjdk</groupId>
     <artifactId>Pack200-ex-openjdk</artifactId>
-    <version>1.14.0-SNAPSHOT</version>
+    <version>1.26.1</version>
     <packaging>jar</packaging>
 
     <name>PACK200-EX-OPENJDK</name>
