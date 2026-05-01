@@ -46,9 +46,13 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Future;
 import net.pack200.Pack200;
 import static au.net.zeus.util.jar.pack.Constants.*;
-import java.util.LinkedList;
+import java.util.ArrayDeque;
 
 /**
  * Define the structure and ordering of "bands" in a packed file.
@@ -593,6 +597,22 @@ class BandStructure {
 
         @Override
         protected void chooseBandCodings() throws IOException {
+            computeBandCoding(null);
+            commitMetaCodingHeaders();
+        }
+
+        /**
+         * Phase 1 of coding selection: choose the best coding method and
+         * compute all derived state (bandCoding, metaCoding, outputSize).
+         * This method does NOT write to band_headers and therefore has no
+         * side-effects on shared state; it may safely run in parallel with
+         * other bands.
+         *
+         * @param cc a private CodingChooser to use for evaluation, or null to
+         *           use the shared instance returned by getCodingChooser().
+         *           Pass a fresh instance when calling from a parallel context.
+         */
+        void computeBandCoding(CodingChooser cc) {
             boolean canVary = canVaryCoding();
             if (!canVary || !shouldVaryCoding()) {
                 if (regularCoding.canRepresent(values, 0, length)) {
@@ -606,9 +626,16 @@ class BandStructure {
                 outputSize = -1;
             } else {
                 int[] sizes = {0,0};
-                bandCoding = chooseCoding(values, 0, length,
-                                          regularCoding, name(),
-                                          sizes);
+                if (cc == null) {
+                    bandCoding = chooseCoding(values, 0, length,
+                                              regularCoding, name(),
+                                              sizes);
+                } else {
+                    // Parallel path: use the supplied private CodingChooser.
+                    if (verbose > 1 || cc.verbose > 1)
+                        Utils.log.fine("--- chooseCoding "+name());
+                    bandCoding = cc.choose(values, 0, length, regularCoding, sizes);
+                }
                 outputSize = sizes[CodingChooser.BYTE_SIZE];
                 if (outputSize == 0)  // CodingChooser failed to size it.
                     outputSize = -1;
@@ -638,6 +665,7 @@ class BandStructure {
                 Utils.log.fine("   meta-coding "+sb);
             }
 
+            CodingChooser assertCC = (cc != null) ? cc : getCodingChooser();
             assert((outputSize < 0) ||
                    !(bandCoding instanceof Coding) ||
                    (outputSize == ((Coding)bandCoding)
@@ -645,16 +673,23 @@ class BandStructure {
                 : (bandCoding+" : "+
                    outputSize+" != "+
                    ((Coding)bandCoding).getLength(values, 0, length)
-                   +" ?= "+getCodingChooser().computeByteSize(bandCoding,values,0,length)
+                   +" ?= "+assertCC.computeByteSize(bandCoding,values,0,length)
                    );
 
-            // Compute outputSize of the escape value X, if any.
+            // Pre-compute the escape overhead (pure maths, no shared state).
+            if (metaCoding.length > 0 && outputSize >= 0) {
+                outputSize += computeEscapeSize();  // good cache
+            }
+        }
+
+        /**
+         * Phase 2 of coding selection: flush the meta-coding header bytes
+         * for this band into the shared band_headers ByteBand.  Must be
+         * called sequentially, in the same order that bands appear in the
+         * archive, after {@link #computeBandCoding} has been called.
+         */
+        void commitMetaCodingHeaders() throws IOException {
             if (metaCoding.length > 0) {
-                // First byte XB of meta-coding is treated specially,
-                // but any other bytes go into the band headers band.
-                // This must be done before any other output happens.
-                if (outputSize >= 0)
-                    outputSize += computeEscapeSize();  // good cache
                 // Other bytes go into band_headers.
                 for (int i = 1; i < metaCoding.length; i++) {
                     band_headers.putByte(metaCoding[i] & 0xFF);
@@ -1124,6 +1159,10 @@ class BandStructure {
         return codingChooser;
     }
 
+    // Maximum number of values from the previous band used to warm up the
+    // deflate history for the next band's coding evaluation.
+    private static final int CODING_CONTEXT_LIMIT = 200;
+
     public CodingMethod chooseCoding(int[] values, int start, int end,
                                      Coding regular, String bandName,
                                      int[] sizes) {
@@ -1135,7 +1174,31 @@ class BandStructure {
         if (verbose > 1 || cc.verbose > 1) {
             Utils.log.fine("--- chooseCoding "+bandName);
         }
-        return cc.choose(values, start, end, regular, sizes);
+        CodingMethod result = cc.choose(values, start, end, regular, sizes);
+        // Warm the deflate context for the next sequential band evaluation
+        // with this band's encoded output.  This makes the in-memory size
+        // estimates more representative of the final deflated archive, where
+        // all bands are concatenated through the same deflate stream.
+        updateCodingContext(cc, result, values, start, end);
+        return result;
+    }
+
+    /**
+     * Encodes up to {@link #CODING_CONTEXT_LIMIT} values from [start, end)
+     * using {@code coding} and stores the resulting bytes as the context
+     * (deflate warm-up prefix) for the next call to {@link CodingChooser#choose}.
+     */
+    private void updateCodingContext(CodingChooser cc, CodingMethod coding,
+                                     int[] values, int start, int end) {
+        if (end <= start) return;
+        try {
+            ByteArrayOutputStream ctx = cc.getContext();
+            ctx.reset();
+            int len = Math.min(end - start, CODING_CONTEXT_LIMIT);
+            coding.writeArrayTo(ctx, values, start, start + len);
+        } catch (IOException e) {
+            // Context population is best-effort; ignore failures.
+        }
     }
 
     static final byte[] defaultMetaCoding = { _meta_default };
@@ -1310,10 +1373,60 @@ class BandStructure {
 
         @Override
         protected void chooseBandCodings() throws IOException {
-            // coding decision pass
+            // Phase 1: in parallel, compute the best coding for each ValueBand.
+            // Each task uses its own fresh CodingChooser to avoid contention on
+            // the shared instance.  ByteBands and nested MultiBands are handled
+            // sequentially in phase 2 (ByteBand is a no-op; MultiBand recurses
+            // and applies the same two-phase strategy to its own children).
+            //
+            // Note: basicCodings is a shared, immutable array; each CodingChooser
+            // stores a reference to it without copying, so passing it here is safe.
+            if (effort > MIN_EFFORT && bandCount > 1) {
+                List<Callable<Void>> tasks = new ArrayList<>();
+                for (int i = 0; i < bandCount; i++) {
+                    Band b = bands[i];
+                    if (b instanceof ValueBand) {
+                        final ValueBand vb = (ValueBand) b;
+                        tasks.add(() -> {
+                            vb.computeBandCoding(new CodingChooser(effort, basicCodings));
+                            return null;
+                        });
+                    }
+                }
+                if (!tasks.isEmpty()) {
+                    try {
+                        List<Future<Void>> futures =
+                            ForkJoinPool.commonPool().invokeAll(tasks);
+                        for (Future<Void> f : futures) {
+                            f.get();  // propagate any task exceptions
+                        }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new IOException("Band coding interrupted", e);
+                    } catch (ExecutionException e) {
+                        Throwable cause = e.getCause();
+                        if (cause instanceof IOException)
+                            throw (IOException) cause;
+                        if (cause instanceof RuntimeException)
+                            throw (RuntimeException) cause;
+                        throw new RuntimeException("Band coding failed", cause);
+                    }
+                }
+            }
+
+            // Phase 2: sequentially process all bands in original order.
+            // - ValueBands that were computed in phase 1: just commit their
+            //   meta-coding header bytes to the shared band_headers band.
+            // - ValueBands at effort <= MIN_EFFORT: run the full sequential path.
+            // - ByteBands: trivial no-op chooseBandCodings().
+            // - Nested MultiBands: recurse (they apply the same strategy).
             for (int i = 0; i < bandCount; i++) {
                 Band b = bands[i];
-                b.chooseBandCodings();
+                if (b instanceof ValueBand && effort > MIN_EFFORT) {
+                    ((ValueBand) b).commitMetaCodingHeaders();
+                } else {
+                    b.chooseBandCodings();
+                }
             }
         }
 
@@ -2859,7 +2972,7 @@ class BandStructure {
      * this works perfectly if we use the java packer and unpacker, typically
      * this will work with --repack or if they are in the same jvm instance.
      */
-    static LinkedList<String> bandSequenceList = null;
+    static ArrayDeque<String> bandSequenceList = null;
     private boolean assertReadyToWriteTo(Band b, OutputStream out) throws IOException {
         Band p = prevForAssertMap.get(b);
         // Any previous band must be done writing before this one starts.
@@ -2876,7 +2989,7 @@ class BandStructure {
             // the reader's assertReadyToReadFrom stays in sync.
             if (b.phase() == FROZEN_PHASE) return true;
             if (bandSequenceList == null)
-                bandSequenceList = new LinkedList<>();
+                bandSequenceList = new ArrayDeque<>();
             // Verify synchronization between reader & writer:
             bandSequenceList.add(name);
             // System.out.println("Writing: " + b);

@@ -350,6 +350,10 @@ class Coding implements Comparable<Coding>, CodingMethod, Histogram.BitMetric {
     public static final int H_MAX = 256;  /* H: [1,256] */
     public static final int S_MAX = 2;    /* S: [0,2] */
 
+    // Reusable write buffer: avoids a 256-byte allocation per writeArrayTo call.
+    private static final ThreadLocal<byte[]> WRITE_BUF =
+        ThreadLocal.withInitial(() -> new byte[1 << 8]);
+
     // END OF STATICS.
 
     private final int B; /*1..5*/       // # bytes (1..5)
@@ -495,7 +499,7 @@ class Coding implements Comparable<Coding>, CodingMethod, Histogram.BitMetric {
         // The following code is a buffered version of this loop:
         //    for (int i = start; i < end; i++)
         //        writeTo(out, a[i]);
-        byte[] buf = new byte[1<<8];
+        byte[] buf = WRITE_BUF.get();
         final int bufmax = buf.length-B;
         int[] pos = { 0 };
         for (int i = start; i < end; ) {
