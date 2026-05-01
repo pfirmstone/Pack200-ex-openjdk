@@ -1415,14 +1415,16 @@ class BandStructure {
             }
 
             // Phase 2: sequentially process all bands in original order.
-            // - ValueBands that were computed in phase 1: just commit their
-            //   meta-coding header bytes to the shared band_headers band.
-            // - ValueBands at effort <= MIN_EFFORT: run the full sequential path.
+            // - ValueBands that were computed in phase 1 (effort > MIN_EFFORT &&
+            //   bandCount > 1): just commit their meta-coding header bytes to the
+            //   shared band_headers band.
+            // - ValueBands not processed in phase 1 (effort <= MIN_EFFORT or
+            //   bandCount == 1): run the full sequential chooseBandCodings() path.
             // - ByteBands: trivial no-op chooseBandCodings().
             // - Nested MultiBands: recurse (they apply the same strategy).
             for (int i = 0; i < bandCount; i++) {
                 Band b = bands[i];
-                if (b instanceof ValueBand && effort > MIN_EFFORT) {
+                if (b instanceof ValueBand && effort > MIN_EFFORT && bandCount > 1) {
                     ((ValueBand) b).commitMetaCodingHeaders();
                 } else {
                     b.chooseBandCodings();
