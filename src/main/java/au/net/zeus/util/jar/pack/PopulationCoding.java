@@ -39,7 +39,14 @@ import static au.net.zeus.util.jar.pack.Constants.*;
  * See the section "Encodings of Uncorrelated Values" in the Pack200 spec.
  * @author John Rose
  */
-// This tactic alone reduces the final zipped rt.jar by about a percent.
+// This tactic reduces zipped rt.jar by ~1% on legacy JDK 8 (pre-modular, monolithic rt.jar).
+// On modern Java 17+ JARs (records, sealed classes, lambdas, pattern matching) the benefit
+// is negligible (<0.01 pp) because constant-pool diversity is much higher: synthetic lambda
+// names ($Lambda$N), record component descriptors, and pattern-matching bootstrap entries
+// are all near-unique, leaving little repetition for population coding to exploit.
+// CodingChooser can skip population coding automatically for high-entropy bands via
+// EntropyAnalyzer when the "au.net.zeus.util.jar.pack.no.entropy.adaptive" property
+// is not set to true.
 class PopulationCoding implements CodingMethod {
     Histogram vHist;   // histogram of all values
     int[]     fValues; // list of favored values

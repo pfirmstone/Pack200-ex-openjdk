@@ -818,6 +818,21 @@ class PackageWriter extends BandStructure {
             int packCharCount = cp_Utf8_big_chars.length();
             int charCount = normCharCount + packCharCount;
             Utils.log.info("Utf8string #CHARS="+charCount+" #PACKEDCHARS="+packCharCount);
+            // Option B: report lambda-synthetic name density so the user can
+            // understand why population coding may not help on modern JARs.
+            String[] strings = new String[cpMap.length];
+            for (int i = 0; i < cpMap.length; i++) {
+                strings[i] = cpMap[i].stringValue();
+            }
+            int lambdaCount = EntropyAnalyzer.lambdaSyntheticCount(strings);
+            if (lambdaCount > 0) {
+                Utils.log.info(String.format(
+                    "Lambda synthetic cp_Utf8 entries: %d/%d (%.1f%%)" +
+                    " – near-unique names increase band entropy;" +
+                    " population coding for cp_Utf8_chars is bypassed automatically.",
+                    lambdaCount, cpMap.length,
+                    100.0 * lambdaCount / cpMap.length));
+            }
         }
     }
 
@@ -1327,6 +1342,33 @@ class PackageWriter extends BandStructure {
                 for (Package.RecordComponent rc : cls.recordComponents) {
                     writeAttrs(ATTR_CONTEXT_RECORD_COMPONENT, rc, cls);
                 }
+            }
+        }
+
+        // Option C: report record component type repetition so the user can
+        // understand when the class_Record_type_RS band benefits from pop coding.
+        if (verbose > 0) {
+            int recordClassCount = 0;
+            int totalComponents  = 0;
+            List<String> typeDescs = new ArrayList<>();
+            for (Class cls : classes) {
+                if (cls.recordComponents == null) continue;
+                recordClassCount++;
+                for (Package.RecordComponent rc : cls.recordComponents) {
+                    totalComponents++;
+                    typeDescs.add(rc.type.stringValue());
+                }
+            }
+            if (recordClassCount > 0) {
+                int distinct = EntropyAnalyzer.distinctRecordTypeCount(
+                        typeDescs.toArray(new String[0]));
+                Utils.log.info(String.format(
+                    "Record classes: %d with %d component(s), %d distinct type(s)" +
+                    " (%.1f%% repetition) – low-entropy type band; population coding beneficial.",
+                    recordClassCount, totalComponents, distinct,
+                    totalComponents > 0
+                        ? 100.0 * (totalComponents - distinct) / totalComponents
+                        : 0.0));
             }
         }
     }

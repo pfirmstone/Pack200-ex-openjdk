@@ -49,9 +49,19 @@ class CodingChooser {
     boolean optUseHistogram = true;
     boolean optUsePopulationCoding = true;
     boolean optUseAdaptiveCoding = true;
+    boolean optUseEntropyAdaptive = true;
+    double  entropyThreshold = EntropyAnalyzer.DEFAULT_HIGH_ENTROPY_THRESHOLD;
     boolean disablePopCoding;
     boolean disableRunCoding;
     boolean topLevel = true;
+
+    /**
+     * Name of the band currently being evaluated; set by the caller before
+     * invoking {@link #choose} so that diagnostic log messages can identify
+     * <em>which</em> band triggered a decision (e.g. population-coding skip).
+     * Defaults to the empty string so the field is always safe to read.
+     */
+    String debugBandName = "";
 
     // Derived from effort; >1 (<1) means try more (less) experiments
     // when looking to beat a best score.
@@ -125,6 +135,16 @@ class CodingChooser {
                 = !p200.getBoolean(Utils.COM_PREFIX+"no.population.coding");
             this.optUseAdaptiveCoding
                 = !p200.getBoolean(Utils.COM_PREFIX+"no.adaptive.coding");
+            this.optUseEntropyAdaptive
+                = !p200.getBoolean(Utils.COM_PREFIX+"no.entropy.adaptive");
+            String et = p200.getProperty(Utils.COM_PREFIX+"entropy.threshold");
+            if (et != null) {
+                try {
+                    double d = Double.parseDouble(et);
+                    if (d > 0.0 && d <= 1.0)
+                        this.entropyThreshold = d;
+                } catch (NumberFormatException ignored) {}
+            }
             int lstress
                 = p200.getInteger(Utils.COM_PREFIX+"stress.coding");
             if (lstress != 0)
@@ -637,6 +657,20 @@ class CodingChooser {
     private void tryPopulationCoding(Coding plainCoding) {
         // assert(plainCoding.canRepresent(min, max));
         Histogram hist = getValueHistogram();
+        // Skip population coding for high-entropy distributions.  On modern
+        // Java 17+ JARs (lambdas, records, sealed classes) band values are
+        // nearly unique, so the population-coding header overhead exceeds any
+        // savings on the body.
+        if (optUseEntropyAdaptive
+                && EntropyAnalyzer.isHighEntropy(hist, entropyThreshold)) {
+            if (verbose > 1) {
+                Utils.log.info("skipping pop-coding [" + debugBandName
+                        + "]: high-entropy band (H_norm="
+                        + String.format("%.3f", EntropyAnalyzer.normalizedEntropy(hist))
+                        + " >= threshold=" + entropyThreshold + ")");
+            }
+            return;
+        }
         // Start with "reasonable" default codings.
         final int approxL = 64;
         Coding favoredCoding = plainCoding.getValueCoding();
