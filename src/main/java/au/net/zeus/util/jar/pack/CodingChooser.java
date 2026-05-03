@@ -55,6 +55,14 @@ class CodingChooser {
     boolean disableRunCoding;
     boolean topLevel = true;
 
+    /**
+     * Name of the band currently being evaluated; set by the caller before
+     * invoking {@link #choose} so that diagnostic log messages can identify
+     * <em>which</em> band triggered a decision (e.g. population-coding skip).
+     * Defaults to the empty string so the field is always safe to read.
+     */
+    String debugBandName = "";
+
     // Derived from effort; >1 (<1) means try more (less) experiments
     // when looking to beat a best score.
     double fuzz;
@@ -656,7 +664,8 @@ class CodingChooser {
         if (optUseEntropyAdaptive
                 && EntropyAnalyzer.isHighEntropy(hist, entropyThreshold)) {
             if (verbose > 1) {
-                Utils.log.info("skipping pop-coding: high-entropy band (H_norm="
+                Utils.log.info("skipping pop-coding [" + debugBandName
+                        + "]: high-entropy band (H_norm="
                         + String.format("%.3f", EntropyAnalyzer.normalizedEntropy(hist))
                         + " >= threshold=" + entropyThreshold + ")");
             }

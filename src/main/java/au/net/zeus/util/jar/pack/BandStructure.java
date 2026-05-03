@@ -634,6 +634,7 @@ class BandStructure {
                     // Parallel path: use the supplied private CodingChooser.
                     if (verbose > 1 || cc.verbose > 1)
                         Utils.log.fine("--- chooseCoding "+name());
+                    cc.debugBandName = name();
                     bandCoding = cc.choose(values, 0, length, regularCoding, sizes);
                 }
                 outputSize = sizes[CodingChooser.BYTE_SIZE];
@@ -1174,6 +1175,7 @@ class BandStructure {
         if (verbose > 1 || cc.verbose > 1) {
             Utils.log.fine("--- chooseCoding "+bandName);
         }
+        cc.debugBandName = bandName;
         CodingMethod result = cc.choose(values, start, end, regular, sizes);
         // Warm the deflate context for the next sequential band evaluation
         // with this band's encoded output.  This makes the in-memory size
