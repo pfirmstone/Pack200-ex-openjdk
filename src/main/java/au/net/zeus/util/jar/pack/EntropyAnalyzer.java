@@ -30,7 +30,7 @@ package au.net.zeus.util.jar.pack;
  * {@link CodingChooser}.
  *
  * <p>Population coding is most beneficial when the value sequence contains
- * a small set of high-frequency ("favoured") values.  For sequences where all
+ * a small set of high-frequency ("favored") values.  For sequences where all
  * values are roughly equally probable (high entropy), the population-coding
  * header overhead outweighs any savings on the body.
  *
