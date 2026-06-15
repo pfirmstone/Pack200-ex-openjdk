@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin>
+  <name>Pack200 Normalize Maven Plugin</name>
+  <description>Runs net.pack200.Normalize on the JAR Maven just built and stamps a SHA-256 content hash into META-INF.</description>
+  <groupId>au.net.zeus.pack200-ex-openjdk</groupId>
+  <artifactId>pack200-normalize-maven-plugin</artifactId>
+  <version>1.27.1</version>
+  <goalPrefix>pack200-normalize</goalPrefix>
+  <isolatedRealm>false</isolatedRealm>
+  <inheritedByDefault>true</inheritedByDefault>
+  <requiredJavaVersion>1.8</requiredJavaVersion>
+  <requiredMavenVersion>3.1.0</requiredMavenVersion>
+  <mojos>
+    <mojo>
+      <goal>normalize</goal>
+      <description>Run Normalize.normalize on the project JAR and (optionally) stamp META-INF/CONTENT-HASH with SHA-256(canonical).</description>
+      <requiresDirectInvocation>false</requiresDirectInvocation>
+      <requiresProject>true</requiresProject>
+      <requiresReports>false</requiresReports>
+      <aggregator>false</aggregator>
+      <requiresOnline>false</requiresOnline>
+      <inheritedByDefault>true</inheritedByDefault>
+      <phase>package</phase>
+      <implementation>net.pack200.maven.NormalizeMojo</implementation>
+      <language>java</language>
+      <instantiationStrategy>per-lookup</instantiationStrategy>
+      <executionStrategy>once-per-session</executionStrategy>
+      <threadSafe>true</threadSafe>
+      <parameters>
+        <parameter>
+          <name>inputFile</name>
+          <type>java.io.File</type>
+          <required>true</required>
+          <editable>true</editable>
+          <description>JAR to normalise. Defaults to the artifact Maven just built.</description>
+        </parameter>
+        <parameter>
+          <name>outputFile</name>
+          <type>java.io.File</type>
+          <required>false</required>
+          <editable>true</editable>
+          <description>Output JAR. Defaults to the input (replaced in place atomically).</description>
+        </parameter>
+        <parameter>
+          <name>attachStamp</name>
+          <type>boolean</type>
+          <required>false</required>
+          <editable>true</editable>
+          <description>Append META-INF/CONTENT-HASH recording SHA-256 of the canonical (pre-stamp) bytes.</description>
+        </parameter>
+        <parameter>
+          <name>stampEntryName</name>
+          <type>java.lang.String</type>
+          <required>false</required>
+          <editable>true</editable>
+          <description>Entry name for the stamp.</description>
+        </parameter>
+        <parameter>
+          <name>failOnAlreadyStamped</name>
+          <type>boolean</type>
+          <required>false</required>
+          <editable>true</editable>
+          <description>If true and the input already carries a self-consistent stamp, skip and leave the file untouched.</description>
+        </parameter>
+        <parameter>
+          <name>skip</name>
+          <type>boolean</type>
+          <required>false</required>
+          <editable>true</editable>
+          <description>Skip execution entirely.</description>
+        </parameter>
+      </parameters>
+      <configuration>
+        <inputFile implementation="java.io.File" default-value="${project.build.directory}/${project.build.finalName}.jar">${pack200.normalize.inputFile}</inputFile>
+        <outputFile implementation="java.io.File">${pack200.normalize.outputFile}</outputFile>
+        <attachStamp implementation="boolean" default-value="true">${pack200.normalize.attachStamp}</attachStamp>
+        <stampEntryName implementation="java.lang.String" default-value="META-INF/CONTENT-HASH">${pack200.normalize.stampEntryName}</stampEntryName>
+        <failOnAlreadyStamped implementation="boolean" default-value="false">${pack200.normalize.failOnAlreadyStamped}</failOnAlreadyStamped>
+        <skip implementation="boolean" default-value="false">${pack200.normalize.skip}</skip>
+      </configuration>
+    </mojo>
+  </mojos>
+  <dependencies>
+    <dependency>
+      <groupId>au.net.zeus.pack200-ex-openjdk</groupId>
+      <artifactId>Pack200-ex-openjdk</artifactId>
+      <type>jar</type>
+      <version>1.27.0</version>
+    </dependency>
+  </dependencies>
+</plugin>

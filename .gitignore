@@ -20,3 +20,4 @@ test/jdk/tools/pack200/pack200-verifier/build/
 test/jdk/tools/pack200/pack200-verifier/dist/
 **/*.class
 /.vs
+/pack200-normalize-maven-plugin/target

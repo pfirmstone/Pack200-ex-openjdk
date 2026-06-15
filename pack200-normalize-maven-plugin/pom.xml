@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>au.net.zeus.pack200-ex-openjdk</groupId>
+    <artifactId>pack200-normalize-maven-plugin</artifactId>
+    <version>1.27.1</version>
+    <packaging>maven-plugin</packaging>
+
+    <name>Pack200 Normalize Maven Plugin</name>
+    <description>
+        Maven plugin that runs net.pack200.Normalize on the JAR Maven just built,
+        stamps META-INF/CONTENT-HASH with SHA-256 of the canonical (unstamped)
+        bytes, and replaces the original JAR. Producers add this to their pom to
+        ship pre-normalised, byte-reproducible JARs whose identity is the content
+        hash recorded in the stamp.
+    </description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <maven.compiler.release>8</maven.compiler.release>
+        <maven.api.version>3.1.0</maven.api.version>
+        <maven.core.version>3.2.5</maven.core.version>
+        <maven.plugin.tools.version>3.7.0</maven.plugin.tools.version>
+        <maven.plugin.annotations.version>3.5.2</maven.plugin.annotations.version>
+        <junit.version>4.13.1</junit.version>
+        <pack200.version>1.27.0</pack200.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>au.net.zeus.pack200-ex-openjdk</groupId>
+            <artifactId>Pack200-ex-openjdk</artifactId>
+            <version>${pack200.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-plugin-api</artifactId>
+            <version>${maven.api.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-core</artifactId>
+            <version>${maven.core.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.maven.plugin-tools</groupId>
+            <artifactId>maven-plugin-annotations</artifactId>
+            <version>${maven.plugin.annotations.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <release>8</release>
+                    <encoding>UTF-8</encoding>
+                    <showDeprecation>true</showDeprecation>
+                </configuration>
+            </plugin>
+
+            <!--
+              maven-plugin-plugin is normally auto-bound to the "maven-plugin" lifecycle
+              for descriptor generation and metadata. To avoid the maven-plugin-plugin
+              dependency-resolution problem in this offline build, the plugin descriptor
+              at META-INF/maven/plugin.xml is HAND-WRITTEN in src/main/resources and the
+              maven-plugin-plugin's default-descriptor execution is unbound below.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-plugin-plugin</artifactId>
+                <version>${maven.plugin.tools.version}</version>
+                <executions>
+                    <execution>
+                        <id>default-descriptor</id>
+                        <phase>none</phase>
+                    </execution>
+                    <execution>
+                        <id>default-addPluginArtifactMetadata</id>
+                        <phase>none</phase>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.1.2</version>
+            </plugin>
+        </plugins>
+    </build>
+</project>
