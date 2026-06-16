@@ -136,9 +136,10 @@ Provide-Capability, Private-Package, etc.)
 6. **Long-line wrapping:** a >72-byte value round-trips and is a fixed point.
 7. **Multi-release + per-entry sections:** sections sorted, attributes sorted.
 8. **Signed jar:** manifest left intact (or refused) — no `*-Digest` mutation.
-9. **Cross-environment:** run under two locales/timezones (e.g. `tr-TR`,
-   `Asia/Kolkata`) → identical output (guards against locale-sensitive casing in
-   the comparator).
+9. **Cross-locale:** run under two locales (e.g. `en-US`, `tr-TR`) with a fixed
+   time zone → identical output (guards against locale-sensitive casing in the
+   comparator).  Time zone is held fixed deliberately — see "Known limitation:
+   time-zone determinism" below.
 
 ## Risks / mitigations
 
@@ -157,3 +158,31 @@ Provide-Capability, Private-Package, etc.)
 - Doc updates: `Normalize` javadoc "What normalisation does NOT do" amended to
   state the manifest IS canonicalised under `reproducible()`; plugin README.
 - Release `1.27.2`; JGDMS `pack200.version` bump.
+
+## Known limitation: time-zone determinism (separate from this scope)
+
+Manifest canonicalisation (this work) makes the normalised manifest **locale**-
+independent. It does **not** address a separate, pre-existing property of
+`Normalize`'s ZIP layer: the JDK ZIP writer encodes each entry's timestamp — the
+legacy DOS time field **and** the `0x5455` "UT" extended-timestamp extra block —
+in the JVM's **default time zone**. Empirically this holds even when using
+`ZipEntry.setTimeLocal(LocalDateTime)` (verified on the DirtyChai OpenJDK build):
+the same input normalised under `UTC` vs `Asia/Kolkata` yields different bytes
+(the stored time shifts by the zone offset) and a UT block is still emitted.
+
+Consequence: two builds of identical source on hosts in different zones produce
+different `SHA-256(C)`. Mitigations, in order of preference:
+
+1. **Build with a fixed zone** (recommended, conventional for reproducible
+   builds): run producers and Host 4 with `-Duser.timezone=UTC`. No code change;
+   matches `SOURCE_DATE_EPOCH`-style ecosystems. This is the assumed deployment
+   for the SCAP `contentHash` / STD-007 `javaCodeDigest` to be stable.
+2. **Force UTC inside `rewriteCanonical`** during the ZIP write
+   (`TimeZone.setDefault(UTC)` save/restore under a static lock). Removes the
+   build-environment dependency, but serialises concurrent `normalize` calls and
+   briefly mutates process-global zone state — a change to `Normalize`'s
+   documented thread-safety contract; a maintainer decision.
+3. **Custom ZIP writer** that emits a fixed DOS field and no UT block. Fully
+   self-contained and thread-safe, but the largest change.
+
+This is tracked as a follow-up decision, independent of manifest canonicalisation.

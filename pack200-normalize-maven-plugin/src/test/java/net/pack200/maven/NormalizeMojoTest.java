@@ -284,7 +284,105 @@ public class NormalizeMojoTest {
         }
     }
 
+    /**
+     * Default mojo run (canonicaliseManifest defaults to true) strips volatile
+     * headers from the manifest.
+     */
+    @Test
+    public void default_strips_volatile_manifest_headers() throws Exception {
+        File volatileJar = buildJarWithManifestText(
+                "Manifest-Version: 1.0\r\n"
+              + "Created-By: 17.0.9 (Eclipse Adoptium)\r\n"
+              + "Build-Jdk: 17.0.9\r\n"
+              + "Implementation-Title: Demo\r\n"
+              + "\r\n");
+        File out = new File(tmp.getRoot(), "out-default.jar");
+
+        NormalizeMojo mojo = new NormalizeMojo();
+        mojo.setInputFile(volatileJar);
+        mojo.setOutputFile(out);
+        mojo.setAttachStamp(false);
+        mojo.setStampEntryName("META-INF/CONTENT-HASH");
+        mojo.setSkip(false);
+        mojo.execute();
+
+        String mf = manifestText(out);
+        assertFalse("default run must drop Created-By", mf.contains("Created-By"));
+        assertFalse("default run must drop Build-Jdk", mf.contains("Build-Jdk"));
+        assertTrue("default run must keep Implementation-Title",
+                   mf.contains("Implementation-Title: Demo"));
+    }
+
+    /**
+     * With canonicaliseManifest=false the mojo reproduces the old passthrough
+     * behaviour: volatile headers survive (the manifest is whatever Pack200 emits,
+     * not the canonical form).
+     */
+    @Test
+    public void canonicaliseManifestFalse_keeps_passthrough_behaviour() throws Exception {
+        File volatileJar = buildJarWithManifestText(
+                "Manifest-Version: 1.0\r\n"
+              + "Created-By: 17.0.9 (Eclipse Adoptium)\r\n"
+              + "Build-Jdk: 17.0.9\r\n"
+              + "Implementation-Title: Demo\r\n"
+              + "\r\n");
+        File out = new File(tmp.getRoot(), "out-passthrough.jar");
+
+        NormalizeMojo mojo = new NormalizeMojo();
+        mojo.setInputFile(volatileJar);
+        mojo.setOutputFile(out);
+        mojo.setAttachStamp(false);
+        mojo.setStampEntryName("META-INF/CONTENT-HASH");
+        mojo.setCanonicaliseManifest(false);
+        mojo.setSkip(false);
+        mojo.execute();
+
+        String mf = manifestText(out);
+        assertTrue("canonicaliseManifest=false must keep Created-By", mf.contains("Created-By"));
+        assertTrue("canonicaliseManifest=false must keep Build-Jdk", mf.contains("Build-Jdk"));
+
+        // And it must equal Normalize with canonicaliseManifest(false).
+        byte[] inputBytes = Files.readAllBytes(volatileJar.toPath());
+        ByteArrayOutputStream canon = new ByteArrayOutputStream();
+        try (InputStream in = new ByteArrayInputStream(inputBytes)) {
+            Normalize.normalize(in, canon,
+                    Normalize.Options.reproducible().canonicaliseManifest(false));
+        }
+        assertArrayEquals("output must equal Normalize(canonicaliseManifest=false)",
+                          canon.toByteArray(), Files.readAllBytes(out.toPath()));
+    }
+
     // ---- helpers --------------------------------------------------------
+
+    private File buildJarWithManifestText(String manifestText) throws IOException {
+        File jar = tmp.newFile("volatile-" + System.nanoTime() + ".jar");
+        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(jar);
+             JarOutputStream jos = new JarOutputStream(fos)) {
+            JarEntry mf = new JarEntry("META-INF/MANIFEST.MF");
+            jos.putNextEntry(mf);
+            jos.write(manifestText.getBytes(StandardCharsets.UTF_8));
+            jos.closeEntry();
+            JarEntry r = new JarEntry("data/payload.txt");
+            jos.putNextEntry(r);
+            jos.write("hello pack200\n".getBytes(StandardCharsets.UTF_8));
+            jos.closeEntry();
+        }
+        return jar;
+    }
+
+    private static String manifestText(File jar) throws IOException {
+        try (JarFile jf = new JarFile(jar, false)) {
+            JarEntry e = jf.getJarEntry("META-INF/MANIFEST.MF");
+            assertNotNull("output JAR has no manifest", e);
+            try (InputStream is = jf.getInputStream(e)) {
+                ByteArrayOutputStream b = new ByteArrayOutputStream();
+                byte[] buf = new byte[4096];
+                int n;
+                while ((n = is.read(buf)) > 0) b.write(buf, 0, n);
+                return new String(b.toByteArray(), StandardCharsets.UTF_8);
+            }
+        }
+    }
 
     private static String sha256Hex(byte[] data) throws Exception {
         MessageDigest md = MessageDigest.getInstance("SHA-256");

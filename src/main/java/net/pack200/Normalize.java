@@ -21,6 +21,7 @@
 package net.pack200;
 
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -28,17 +29,26 @@ import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Enumeration;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
+import java.util.logging.Logger;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -123,13 +133,28 @@ import java.util.zip.ZipOutputStream;
  *       filesystem ordering, or host OS.</li>
  * </ul>
  *
+ * <h2>Manifest canonicalisation</h2>
+ *
+ * <p>Under {@link Options#reproducible()} (and whenever
+ * {@link Options#canonicaliseManifest(boolean)} is enabled) the
+ * {@code META-INF/MANIFEST.MF} entry <em>is</em> canonicalised: volatile
+ * tool-identity headers (the {@linkplain Options#manifestDenylist(Set) denylist},
+ * e.g. {@code Created-By}, {@code Build-Jdk}, {@code Bnd-LastModified}) are
+ * dropped from the main attributes, and the surviving attributes are emitted in a
+ * fixed, locale-independent order with fixed UTF-8/CRLF/72-byte-wrap formatting,
+ * so that two builds that differ only in those volatile headers (or in attribute
+ * insertion order) normalise to byte-identical output.  The canonicalisation is
+ * idempotent and is a fixed point of the overall normalisation.  It is skipped for
+ * {@link Options#legacyJarN()} and for signed JARs (see below).
+ *
  * <h2>What normalisation does NOT do</h2>
  *
  * <ul>
- *   <li>It does <em>not</em> alter the manifest.  Lines such as
- *       {@code Created-By:} or {@code Build-Jdk:} are passed through verbatim.
- *       Callers who need the manifest to be reproducible must edit it before
- *       calling.</li>
+ *   <li>It does <em>not</em> canonicalise the manifest of a <b>signed</b> JAR.
+ *       If a {@code META-INF/*.SF} entry is present, the manifest is passed through
+ *       verbatim (rewriting it would invalidate the per-entry {@code *-Digest}
+ *       values), consistent with this class not re-signing JARs.  A warning is
+ *       logged in that case.</li>
  *   <li>It does <em>not</em> re-sign the JAR.  Existing signatures (the
  *       {@code META-INF/*.SF}, {@code META-INF/*.RSA}, etc. entries) are passed
  *       through but the underlying classfile bytes <em>do</em> change during the
@@ -168,6 +193,41 @@ public final class Normalize {
      */
     public static final long ZIP_EPOCH_1980_UTC_MILLIS = 315532800000L;
 
+    private static final Logger LOG = Logger.getLogger(Normalize.class.getName());
+
+    /**
+     * The default set of main-attribute header names dropped during manifest
+     * canonicalisation.  Matching is case-insensitive and exact (no prefix
+     * matching).  These are provably build-environment / tool-identity headers
+     * only; everything else (including {@code Implementation-*} and
+     * {@code Specification-*}, all OSGi {@code Bundle-*}, etc.) is preserved.
+     *
+     * <p>Deployments tweak this via {@link Options#manifestDenylistAdd(String...)}
+     * / {@link Options#manifestDenylistRemove(String...)} or replace it wholesale
+     * via {@link Options#manifestDenylist(Set)}.
+     */
+    public static final Set<String> DEFAULT_MANIFEST_DENYLIST;
+    static {
+        // Insertion order is irrelevant: the stored set is normalised to lower
+        // case (ROOT locale) for case-insensitive matching.
+        Set<String> d = new LinkedHashSet<>();
+        d.add("Created-By");
+        d.add("Build-Jdk");
+        d.add("Build-Jdk-Spec");
+        d.add("Built-By");
+        d.add("Build-Time");
+        d.add("Build-Date");
+        d.add("Build-Timestamp");
+        d.add("Bnd-LastModified");
+        d.add("Tool");
+        d.add("Hostname");
+        d.add("Ant-Version");
+        d.add("Maven-Version");
+        d.add("Originally-Created-By");
+        d.add("Implementation-Build-Date");
+        DEFAULT_MANIFEST_DENYLIST = java.util.Collections.unmodifiableSet(d);
+    }
+
     private Normalize() { /* no instances */ }
 
     // ------------------------------------------------------------------------
@@ -203,8 +263,21 @@ public final class Normalize {
         private boolean unifyDeflateHint = true;
         private boolean clearZipComment = true;
         private boolean stripExtra = true;
+        private boolean canonicaliseManifest = true;
+        /** Denylisted header names, stored ROOT-lowercased for case-insensitive matching. */
+        private Set<String> manifestDenylistLower = lowerSet(DEFAULT_MANIFEST_DENYLIST);
 
         private Options() { /* use factories */ }
+
+        private static Set<String> lowerSet(Set<String> names) {
+            Set<String> s = new LinkedHashSet<>();
+            for (String n : names) {
+                if (n != null) {
+                    s.add(n.toLowerCase(Locale.ROOT));
+                }
+            }
+            return s;
+        }
 
         /**
          * Returns options that fully canonicalise the JAR: Pack200 round-trip
@@ -237,7 +310,8 @@ public final class Normalize {
                     .sortEntries(false)
                     .unifyDeflateHint(false)
                     .clearZipComment(false)
-                    .stripExtra(false);
+                    .stripExtra(false)
+                    .canonicaliseManifest(false);
         }
 
         /**
@@ -371,10 +445,88 @@ public final class Normalize {
             return this;
         }
 
+        /**
+         * Whether to canonicalise {@code META-INF/MANIFEST.MF}.  Default:
+         * {@code true} for {@link #reproducible()}, {@code false} for
+         * {@link #legacyJarN()}.
+         *
+         * <p>When enabled and a manifest entry is present, denylisted main
+         * attributes (see {@link #manifestDenylist(Set)}) are dropped and the
+         * remaining attributes are re-serialised in a fixed, locale-independent
+         * order and format.  Skipped automatically for signed JARs (those with a
+         * {@code META-INF/*.SF} entry), whose per-entry digests must not be
+         * disturbed.
+         *
+         * @param v whether to canonicalise the manifest
+         * @return this
+         */
+        public Options canonicaliseManifest(boolean v) {
+            this.canonicaliseManifest = v;
+            return this;
+        }
+
+        /**
+         * Replaces the manifest denylist (the set of main-attribute header names
+         * dropped during canonicalisation) with {@code names}.  Matching is
+         * case-insensitive and exact.  Passing an empty set drops nothing.
+         *
+         * @param names header names to drop; {@code null} resets to
+         *              {@link #DEFAULT_MANIFEST_DENYLIST}
+         * @return this
+         */
+        public Options manifestDenylist(Set<String> names) {
+            this.manifestDenylistLower = (names == null)
+                    ? lowerSet(DEFAULT_MANIFEST_DENYLIST)
+                    : lowerSet(names);
+            return this;
+        }
+
+        /**
+         * Adds header names to the current manifest denylist without replacing the
+         * existing entries.  Case-insensitive.
+         *
+         * @param names header names to also drop
+         * @return this
+         */
+        public Options manifestDenylistAdd(String... names) {
+            if (names != null) {
+                for (String n : names) {
+                    if (n != null) {
+                        this.manifestDenylistLower.add(n.toLowerCase(Locale.ROOT));
+                    }
+                }
+            }
+            return this;
+        }
+
+        /**
+         * Removes header names from the current manifest denylist (so they are
+         * preserved rather than dropped).  Case-insensitive.
+         *
+         * @param names header names to no longer drop
+         * @return this
+         */
+        public Options manifestDenylistRemove(String... names) {
+            if (names != null) {
+                for (String n : names) {
+                    if (n != null) {
+                        this.manifestDenylistLower.remove(n.toLowerCase(Locale.ROOT));
+                    }
+                }
+            }
+            return this;
+        }
+
+        /** Whether the given header name is denylisted (case-insensitive). */
+        boolean isDenied(String headerName) {
+            return manifestDenylistLower.contains(headerName.toLowerCase(Locale.ROOT));
+        }
+
         /** Returns whether any Step-2 ZIP canonicalisation is required. */
         boolean needsPostProcessing() {
             return dropDirectories || fixTimestamps || sortEntries
-                || clearZipComment || stripExtra || unifyDeflateHint;
+                || clearZipComment || stripExtra || unifyDeflateHint
+                || canonicaliseManifest;
         }
     }
 
@@ -546,10 +698,25 @@ public final class Normalize {
     private static void rewriteCanonical(Path src, OutputStream out, Options opts) throws IOException {
         try (JarFile jf = new JarFile(src.toFile(), false)) {
             List<JarEntry> entries = new ArrayList<>();
+            boolean signed = false;
             for (Enumeration<JarEntry> en = jf.entries(); en.hasMoreElements(); ) {
                 JarEntry e = en.nextElement();
+                if (isSignatureFile(e.getName())) {
+                    signed = true;
+                }
                 if (opts.dropDirectories && e.isDirectory()) continue;
                 entries.add(e);
+            }
+            // Canonicalise the manifest only when enabled AND the JAR is not
+            // signed: rewriting MANIFEST.MF would invalidate the per-entry
+            // *-Digest values recorded for the signature, and this class does
+            // not re-sign.  Consistent with the "does not re-sign" stance.
+            boolean doManifest = opts.canonicaliseManifest;
+            if (doManifest && signed) {
+                LOG.warning("Normalize: skipping manifest canonicalisation for signed JAR "
+                        + "(META-INF/*.SF present); rewriting the manifest would invalidate "
+                        + "per-entry signature digests.");
+                doManifest = false;
             }
             if (opts.sortEntries) {
                 entries.sort((a, b) -> {
@@ -590,6 +757,14 @@ public final class Normalize {
                         while ((n = is.read(readBuf)) > 0) baos.write(readBuf, 0, n);
                         data = baos.toByteArray();
                     }
+
+                    // Replace the manifest bytes with the canonical serialisation
+                    // BEFORE the ZIP entry is written, so the canonical manifest
+                    // participates in the final byte layout (and the CONTENT-HASH).
+                    if (doManifest && JarFile.MANIFEST_NAME.equals(src2.getName())) {
+                        data = canonicaliseManifestBytes(data, opts);
+                    }
+
                     if (method == ZipEntry.STORED) {
                         ze.setSize(data.length);
                         ze.setCompressedSize(data.length);
@@ -599,14 +774,16 @@ public final class Normalize {
                     }
 
                     if (opts.fixTimestamps) {
-                        // ZipEntry#setTime(long) on modern JDKs populates both
-                        // the legacy DOS time and the FileTime mtime field;
-                        // ZipOutputStream then emits a per-entry Extended-
-                        // Timestamp extra block (0x5455 / "UT") in addition.
-                        // That block is deterministic for a given fixedTime,
-                        // so reproducibility is preserved, but stripExtra
-                        // cannot remove it without reflection.  We document
-                        // this as a known artifact of using the JDK ZIP writer.
+                        // NOTE (timezone determinism): the JDK ZIP writer encodes
+                        // the DOS time field — and the 0x5455 "UT" extended-
+                        // timestamp extra block — in the JVM's DEFAULT time zone,
+                        // even via setTimeLocal.  For byte-reproducible output
+                        // across build hosts the build must therefore run with a
+                        // fixed zone (e.g. -Duser.timezone=UTC).  Manifest and
+                        // class/entry canonicalisation are already zone-
+                        // independent; only this timestamp field is not.  See the
+                        // timezone-determinism note in
+                        // docs/manifest-canonicalisation-scope.md.
                         ze.setTime(opts.fixedTimeEpochMillis);
                     }
                     if (opts.stripExtra) {
@@ -638,5 +815,213 @@ public final class Normalize {
                 /* deliberately do not close the wrapped stream */
             }
         };
+    }
+
+    // ------------------------------------------------------------------------
+    // Manifest canonicalisation
+    // ------------------------------------------------------------------------
+
+    /**
+     * Returns {@code true} if {@code name} is a JAR signature block, i.e. a
+     * {@code META-INF/*.SF} signature file (case-insensitive on the suffix, as
+     * the JAR spec treats signature file names case-insensitively).
+     */
+    private static boolean isSignatureFile(String name) {
+        if (name == null) return false;
+        // Must live directly under META-INF/ and end with .SF.
+        if (!name.regionMatches(true, 0, "META-INF/", 0, "META-INF/".length())) {
+            return false;
+        }
+        String rest = name.substring("META-INF/".length());
+        // No further nesting (signature files are not in subdirectories).
+        return rest.indexOf('/') < 0
+                && rest.regionMatches(true, rest.length() - 3, ".SF", 0, 3)
+                && rest.length() > 3;
+    }
+
+    /**
+     * Locale-independent header-name comparator.  Compares names by their
+     * ROOT-locale lowercase form, char-by-char (UTF-16 code unit), with the raw
+     * name as a tie-break so distinct names never compare equal.  Avoids
+     * {@link String#compareToIgnoreCase} (which folds case per default locale and
+     * is subject to the Turkish-i problem).
+     */
+    static final Comparator<String> HEADER_NAME_COMPARATOR = (a, b) -> {
+        String la = a.toLowerCase(Locale.ROOT);
+        String lb = b.toLowerCase(Locale.ROOT);
+        int n = Math.min(la.length(), lb.length());
+        for (int i = 0; i < n; i++) {
+            char ca = la.charAt(i);
+            char cb = lb.charAt(i);
+            if (ca != cb) return ca - cb;
+        }
+        if (la.length() != lb.length()) return la.length() - lb.length();
+        // Same lowercased form: tie-break on the original to keep a total order.
+        return a.compareTo(b);
+    };
+
+    /**
+     * Parses {@code manifestBytes} as a {@link Manifest} and re-serialises it
+     * canonically according to {@code opts}: denylisted main attributes dropped
+     * (see {@link Options#manifestDenylist(Set)}), {@code Manifest-Version} first,
+     * remaining main attributes sorted by a locale-independent comparator, then
+     * per-entry sections sorted by entry name (each {@code Name} first then its
+     * attributes sorted by the same comparator).  Output is UTF-8 with CRLF line
+     * endings and 72-byte line wrapping per the JAR File Specification, one blank
+     * line between sections and a single trailing blank line.
+     *
+     * <p>Exposed for callers (and tests) that want to canonicalise a manifest in
+     * isolation.  It is idempotent: {@code canon(canon(m)) == canon(m)}.
+     *
+     * @param manifestBytes the raw {@code META-INF/MANIFEST.MF} bytes
+     * @param opts          options supplying the denylist (only the manifest
+     *                      denylist is consulted)
+     * @return the canonical manifest bytes
+     * @throws IOException if the manifest is malformed / unparseable, or has no
+     *         {@code Manifest-Version} main attribute
+     * @throws NullPointerException if either argument is {@code null}
+     */
+    public static byte[] canonicaliseManifestBytes(byte[] manifestBytes, Options opts) throws IOException {
+        Objects.requireNonNull(manifestBytes, "manifestBytes");
+        Objects.requireNonNull(opts, "opts");
+        Manifest mf = new Manifest();
+        try {
+            mf.read(new ByteArrayInputStream(manifestBytes));
+        } catch (IOException | IllegalArgumentException e) {
+            // java.util.jar.Manifest throws IOException on most malformed input,
+            // but can also throw IllegalArgumentException (e.g. bad header bytes).
+            throw new IOException("Malformed META-INF/MANIFEST.MF; cannot canonicalise", e);
+        }
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream(manifestBytes.length + 64);
+
+        // --- Main section ----------------------------------------------------
+        Attributes main = mf.getMainAttributes();
+        // Manifest-Version must come first per the JAR spec.  If absent, the
+        // manifest is not well-formed enough to canonicalise meaningfully.
+        String manifestVersion = getAttr(main, "Manifest-Version");
+        if (manifestVersion == null) {
+            throw new IOException("META-INF/MANIFEST.MF has no Manifest-Version main attribute");
+        }
+        writeHeader(out, "Manifest-Version", manifestVersion);
+
+        // Remaining main attributes, denylist-filtered, sorted.
+        TreeMap<String, String> mainSorted = new TreeMap<>(HEADER_NAME_COMPARATOR);
+        for (Map.Entry<Object, Object> e : main.entrySet()) {
+            String name = e.getKey().toString();
+            if (name.equalsIgnoreCase("Manifest-Version")) continue; // already emitted
+            if (opts.isDenied(name)) continue;
+            mainSorted.put(name, e.getValue().toString());
+        }
+        for (Map.Entry<String, String> e : mainSorted.entrySet()) {
+            writeHeader(out, e.getKey(), e.getValue());
+        }
+        // Blank line terminating the main section.
+        writeCrLf(out);
+
+        // --- Per-entry sections ---------------------------------------------
+        TreeMap<String, Attributes> sectionsSorted =
+                new TreeMap<>(HEADER_NAME_COMPARATOR);
+        for (Map.Entry<String, Attributes> e : mf.getEntries().entrySet()) {
+            sectionsSorted.put(e.getKey(), e.getValue());
+        }
+        for (Map.Entry<String, Attributes> section : sectionsSorted.entrySet()) {
+            writeHeader(out, "Name", section.getKey());
+            TreeMap<String, String> attrsSorted = new TreeMap<>(HEADER_NAME_COMPARATOR);
+            for (Map.Entry<Object, Object> a : section.getValue().entrySet()) {
+                String name = a.getKey().toString();
+                // Per-entry attributes are never denylisted (the denylist is for
+                // build-tool main attributes); keep all, incl. *-Digest.
+                attrsSorted.put(name, a.getValue().toString());
+            }
+            for (Map.Entry<String, String> a : attrsSorted.entrySet()) {
+                writeHeader(out, a.getKey(), a.getValue());
+            }
+            // Blank line terminating this section.
+            writeCrLf(out);
+        }
+
+        return out.toByteArray();
+    }
+
+    /** Returns the value of a main attribute by name (case-insensitive), or null. */
+    private static String getAttr(Attributes attrs, String name) {
+        String v = attrs.getValue(name);
+        if (v != null) return v;
+        for (Map.Entry<Object, Object> e : attrs.entrySet()) {
+            if (e.getKey().toString().equalsIgnoreCase(name)) {
+                return e.getValue().toString();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Emits a single {@code name: value} header to {@code out} using UTF-8 with
+     * CRLF endings and 72-byte line wrapping per the JAR File Specification: each
+     * physical line is at most 72 bytes (including the trailing CRLF is not
+     * counted in the 72; the spec counts 72 bytes of content then CRLF), and
+     * continuation lines begin with a single leading space.
+     *
+     * <p>The JAR spec wraps on <em>bytes</em>, not characters, but a continuation
+     * must not split a UTF-8 multi-byte sequence.  We therefore wrap on UTF-8
+     * byte boundaries that fall between encoded characters.
+     */
+    private static void writeHeader(ByteArrayOutputStream out, String name, String value) {
+        // Encode "name: value" as UTF-8 then wrap to 72-byte lines.
+        byte[] header = (name + ": " + value).getBytes(StandardCharsets.UTF_8);
+        // The spec: "No line may be longer than 72 bytes (not characters), in its
+        // UTF8-encoded form. If a value would make the initial line longer than
+        // this, it should be continued on extra lines (each starting with a
+        // single SPACE)."
+        // First line: up to 72 bytes.  Continuation lines: 1 space + up to 71 bytes.
+        int pos = 0;
+        int firstLineMax = 72;
+        int len = header.length;
+        // Determine end of first line on a char boundary.
+        int end = utf8LineEnd(header, pos, firstLineMax);
+        out.write(header, pos, end - pos);
+        writeCrLf(out);
+        pos = end;
+        while (pos < len) {
+            out.write(' ');
+            // Continuation line: leading space counts toward the 72, so 71 bytes of payload.
+            int contMax = 71;
+            int cend = utf8LineEnd(header, pos, contMax);
+            out.write(header, pos, cend - pos);
+            writeCrLf(out);
+            pos = cend;
+        }
+    }
+
+    /**
+     * Returns the exclusive end index for a line starting at {@code start} that is
+     * at most {@code maxBytes} long, without splitting a UTF-8 multi-byte
+     * sequence.  Always advances by at least one byte to guarantee progress.
+     */
+    private static int utf8LineEnd(byte[] b, int start, int maxBytes) {
+        int limit = Math.min(b.length, start + maxBytes);
+        if (limit <= start) {
+            return Math.min(b.length, start + 1);
+        }
+        // If we'd cut in the middle of a UTF-8 continuation byte (10xxxxxx),
+        // back up to the start of that character.
+        int end = limit;
+        if (end < b.length) {
+            while (end > start && (b[end] & 0xC0) == 0x80) {
+                end--;
+            }
+        }
+        // Never return start (no progress); fall back to the byte limit.
+        if (end <= start) {
+            return limit;
+        }
+        return end;
+    }
+
+    /** Writes a CRLF (0x0D 0x0A) to {@code out}. */
+    private static void writeCrLf(ByteArrayOutputStream out) {
+        out.write('\r');
+        out.write('\n');
     }
 }

@@ -17,6 +17,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.zip.CRC32;
@@ -61,7 +63,7 @@ import net.pack200.Normalize;
  * <plugin>
  *   <groupId>au.net.zeus.pack200-ex-openjdk</groupId>
  *   <artifactId>pack200-normalize-maven-plugin</artifactId>
- *   <version>1.27.1</version>
+ *   <version>1.27.2</version>
  *   <executions>
  *     <execution>
  *       <goals><goal>normalize</goal></goals>
@@ -122,6 +124,42 @@ public class NormalizeMojo extends AbstractMojo {
     @Parameter(defaultValue = "false", property = "pack200.normalize.skip")
     private boolean skip;
 
+    /**
+     * If {@code true} (the default), canonicalise {@code META-INF/MANIFEST.MF} as
+     * part of normalisation: drop volatile tool-identity headers (see
+     * {@link #manifestDenylist}) and re-serialise the remaining attributes in a
+     * fixed, locale-independent order/format. Set {@code false} to reproduce the
+     * pre-1.27.2 passthrough behaviour (manifest left byte-for-byte as Pack200
+     * emits it). The {@code CONTENT-HASH} stamp is computed <em>after</em> manifest
+     * canonicalisation.
+     */
+    @Parameter(defaultValue = "true", property = "pack200.normalize.canonicaliseManifest")
+    private boolean canonicaliseManifest = true;
+
+    /**
+     * Replaces the default manifest denylist (main-attribute header names dropped
+     * during canonicalisation). When empty/unset the built-in default is used;
+     * supplying any entries replaces the default set entirely. Matching is
+     * case-insensitive and exact. Use {@link #manifestDenylistAdd} /
+     * {@link #manifestDenylistRemove} to tweak the default without replacing it.
+     */
+    @Parameter(property = "pack200.normalize.manifestDenylist")
+    private String[] manifestDenylist;
+
+    /**
+     * Header names to add to the manifest denylist (on top of whatever the
+     * effective base set is). Case-insensitive.
+     */
+    @Parameter(property = "pack200.normalize.manifestDenylistAdd")
+    private String[] manifestDenylistAdd;
+
+    /**
+     * Header names to remove from the manifest denylist (so they are preserved).
+     * Case-insensitive.
+     */
+    @Parameter(property = "pack200.normalize.manifestDenylistRemove")
+    private String[] manifestDenylistRemove;
+
     @Override
     public void execute() throws MojoExecutionException {
         if (skip) {
@@ -178,7 +216,7 @@ public class NormalizeMojo extends AbstractMojo {
         // 2. Normalise into memory.
         ByteArrayOutputStream normalised = new ByteArrayOutputStream(inputBytes.length);
         try (InputStream in = new ByteArrayInputStream(inputBytes)) {
-            Normalize.normalize(in, normalised, Normalize.Options.reproducible());
+            Normalize.normalize(in, normalised, buildOptions());
         }
         byte[] canonical = normalised.toByteArray();
 
@@ -202,6 +240,42 @@ public class NormalizeMojo extends AbstractMojo {
         getLog().info("pack200-normalize: SHA-256(canonical) = " + canonicalHashHex);
         getLog().info("pack200-normalize: stamp added = " + attachStamp
             + (attachStamp ? " (" + stampEntryName + ")" : ""));
+    }
+
+    /**
+     * Builds the {@link Normalize.Options} from the mojo parameters: starts from
+     * {@link Normalize.Options#reproducible()} and applies the manifest
+     * canonicalisation settings.
+     */
+    Normalize.Options buildOptions() {
+        Normalize.Options opts = Normalize.Options.reproducible()
+                .canonicaliseManifest(canonicaliseManifest);
+        if (manifestDenylist != null && manifestDenylist.length > 0) {
+            Set<String> replacement = new LinkedHashSet<>();
+            for (String s : manifestDenylist) {
+                if (s != null && !s.trim().isEmpty()) {
+                    replacement.add(s.trim());
+                }
+            }
+            opts.manifestDenylist(replacement);
+        }
+        if (manifestDenylistAdd != null && manifestDenylistAdd.length > 0) {
+            opts.manifestDenylistAdd(trimmed(manifestDenylistAdd));
+        }
+        if (manifestDenylistRemove != null && manifestDenylistRemove.length > 0) {
+            opts.manifestDenylistRemove(trimmed(manifestDenylistRemove));
+        }
+        return opts;
+    }
+
+    private static String[] trimmed(String[] in) {
+        java.util.List<String> out = new java.util.ArrayList<>(in.length);
+        for (String s : in) {
+            if (s != null && !s.trim().isEmpty()) {
+                out.add(s.trim());
+            }
+        }
+        return out.toArray(new String[0]);
     }
 
     /**
@@ -598,4 +672,8 @@ public class NormalizeMojo extends AbstractMojo {
     void setStampEntryName(String n)      { this.stampEntryName = n; }
     void setFailOnAlreadyStamped(boolean v){ this.failOnAlreadyStamped = v; }
     void setSkip(boolean v)               { this.skip = v; }
+    void setCanonicaliseManifest(boolean v){ this.canonicaliseManifest = v; }
+    void setManifestDenylist(String[] v)  { this.manifestDenylist = v; }
+    void setManifestDenylistAdd(String[] v){ this.manifestDenylistAdd = v; }
+    void setManifestDenylistRemove(String[] v){ this.manifestDenylistRemove = v; }
 }
